@@ -1,4 +1,4 @@
-import { eq, desc, gte, and, inArray } from 'drizzle-orm'
+import { eq, desc, gte, isNull, and, inArray } from 'drizzle-orm'
 import { getDb } from './client.js'
 import { articles } from './schema.js'
 
@@ -44,6 +44,18 @@ export async function getRecentArticles({ hours = 26, limit = 200 } = {}) {
     .all()
 }
 
+export async function getUnscoredArticles({ hours = 26, limit = 200 } = {}) {
+  const db = getDb()
+  const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString()
+  return db
+    .select()
+    .from(articles)
+    .where(and(gte(articles.scrapedAt, since), isNull(articles.relevanceScore)))
+    .orderBy(desc(articles.scrapedAt))
+    .limit(limit)
+    .all()
+}
+
 export async function markDigestIncluded(ids) {
   const db = getDb()
   db.update(articles)
@@ -55,9 +67,13 @@ export async function markDigestIncluded(ids) {
 export async function updateScores(updates) {
   const db = getDb()
   for (const { id, relevanceScore, summary, categories, tags } of updates) {
-    db.update(articles)
-      .set({ relevanceScore, summary, categories, tags })
-      .where(eq(articles.id, id))
-      .run()
+    // Only set fields that are explicitly provided (not undefined)
+    const patch = {}
+    if (relevanceScore !== undefined) patch.relevanceScore = relevanceScore
+    if (summary !== undefined) patch.summary = summary
+    if (categories !== undefined) patch.categories = categories
+    if (tags !== undefined) patch.tags = tags
+    if (Object.keys(patch).length === 0) continue
+    db.update(articles).set(patch).where(eq(articles.id, id)).run()
   }
 }

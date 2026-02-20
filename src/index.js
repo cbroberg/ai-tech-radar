@@ -4,7 +4,10 @@ import { startScheduler, getSchedulerStatus } from './scheduler.js'
 import { runMigrations } from './db/migrate.js'
 import { runAllScrapers } from './orchestrator.js'
 import { getSourceStatus } from './db/source-runs.js'
-import { getArticlesByScore } from './db/articles.js'
+import { getArticlesByScore, getUnscoredArticles } from './db/articles.js'
+import { dedupByTitle } from './processors/dedup.js'
+import { scoreArticles } from './processors/relevance-scorer.js'
+import { summarizeTopArticles } from './processors/summarizer.js'
 
 // --- Validate env vars before starting ---
 try {
@@ -70,11 +73,30 @@ app.get('/api/digest/latest', (_req, res) => {
 // --- Scan pipeline ---
 async function runDailyScan() {
   console.log('[scan] Starting daily scan...')
-  const stats = await runAllScrapers()
-  // Phase 3: processors (scoring, summarizing)
-  // Phase 4: digest + delivery
-  console.log(`[scan] Done — ${stats.totalFound} found, ${stats.totalNew} new`)
-  return stats
+
+  // Phase 2: scrape all sources
+  const scrapeStats = await runAllScrapers()
+
+  // Phase 3: dedup + score + summarize
+  const unscored = await getUnscoredArticles({ hours: 26 })
+  console.log(`[scan] ${unscored.length} unscored articles to process`)
+
+  const deduped = dedupByTitle(unscored)
+
+  const scoredArticles = await scoreArticles(deduped)
+
+  // Build a lookup map for the summarizer
+  const byId = Object.fromEntries(deduped.map((a) => [a.id, a]))
+  await summarizeTopArticles(scoredArticles, byId)
+
+  // Phase 4: digest + delivery (next phase)
+
+  console.log(
+    `[scan] Complete — ${scrapeStats.totalFound} scraped, ` +
+    `${deduped.length} unique, ${scoredArticles.length} relevant`
+  )
+
+  return { ...scrapeStats, deduped: deduped.length, relevant: scoredArticles.length }
 }
 
 async function runWeeklySummary() {
