@@ -6,7 +6,8 @@
   "main": "src/index.js",
   "scripts": {
     "start": "bun run src/index.js",
-    "dev": "bun --watch src/index.js"
+    "dev": "bun --watch src/index.js",
+    "secrets": "bash scripts/fly-secrets-sync.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
@@ -19,7 +20,6 @@
   "devDependencies": {
     "drizzle-kit": "^0.30.0"
   },
-  "devDependencies": {},
   "engines": {
     "bun": ">=1.1.0"
   }

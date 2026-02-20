@@ -1,5 +1,5 @@
-import { eq, desc } from 'drizzle-orm'
-import { getDb } from './client.js'
+import { eq } from 'drizzle-orm'
+import { getDb, getSqlite } from './client.js'
 import { sourceRuns } from './schema.js'
 
 export function startRun(source) {
@@ -35,12 +35,16 @@ export function failRun(id, errorMessage) {
 }
 
 export function getSourceStatus() {
-  const db = getDb()
-  // Latest run per source
-  return db
-    .select()
-    .from(sourceRuns)
-    .orderBy(desc(sourceRuns.startedAt))
-    .limit(100)
-    .all()
+  // Return latest run per source using raw SQL for simplicity
+  const sqlite = getSqlite()
+  return sqlite.query(`
+    SELECT s.*
+    FROM source_runs s
+    INNER JOIN (
+      SELECT source, MAX(started_at) AS latest
+      FROM source_runs
+      GROUP BY source
+    ) g ON s.source = g.source AND s.started_at = g.latest
+    ORDER BY s.source
+  `).all()
 }

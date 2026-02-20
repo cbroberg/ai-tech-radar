@@ -2,7 +2,7 @@ import { eq, desc, gte, isNull, and, inArray } from 'drizzle-orm'
 import { getDb } from './client.js'
 import { articles } from './schema.js'
 
-export async function upsertArticles(items) {
+export function upsertArticles(items) {
   const db = getDb()
   let inserted = 0
 
@@ -21,7 +21,7 @@ export async function upsertArticles(items) {
   return inserted
 }
 
-export async function getArticlesByScore({ minScore = 0.4, limit = 50 } = {}) {
+export function getArticlesByScore({ minScore = 0.4, limit = 50 } = {}) {
   const db = getDb()
   return db
     .select()
@@ -32,7 +32,7 @@ export async function getArticlesByScore({ minScore = 0.4, limit = 50 } = {}) {
     .all()
 }
 
-export async function getRecentArticles({ hours = 26, limit = 200 } = {}) {
+export function getRecentArticles({ hours = 26, limit = 200 } = {}) {
   const db = getDb()
   const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString()
   return db
@@ -44,7 +44,7 @@ export async function getRecentArticles({ hours = 26, limit = 200 } = {}) {
     .all()
 }
 
-export async function getUnscoredArticles({ hours = 26, limit = 200 } = {}) {
+export function getUnscoredArticles({ hours = 26, limit = 200 } = {}) {
   const db = getDb()
   const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString()
   return db
@@ -56,7 +56,7 @@ export async function getUnscoredArticles({ hours = 26, limit = 200 } = {}) {
     .all()
 }
 
-export async function markDigestIncluded(ids) {
+export function markDigestIncluded(ids) {
   const db = getDb()
   db.update(articles)
     .set({ digestIncluded: true })
@@ -64,7 +64,7 @@ export async function markDigestIncluded(ids) {
     .run()
 }
 
-export async function updateScores(updates) {
+export function updateScores(updates) {
   const db = getDb()
   for (const { id, relevanceScore, summary, categories, tags } of updates) {
     // Only set fields that are explicitly provided (not undefined)
