@@ -39,15 +39,30 @@ app.get('/health', (_req, res) => {
   })
 })
 
-// --- Manual scan trigger (auth required) ---
-app.post('/api/scan/trigger', (req, res) => {
+function requireAdmin(req, res) {
   const token = req.headers['authorization']?.replace('Bearer ', '')
   if (!config.server.adminToken || token !== config.server.adminToken) {
-    return res.status(401).json({ error: 'Unauthorized' })
+    res.status(401).json({ error: 'Unauthorized' })
+    return false
   }
+  return true
+}
+
+// --- Manual scan trigger (auth required) ---
+app.post('/api/scan/trigger', (req, res) => {
+  if (!requireAdmin(req, res)) return
   res.json({ status: 'triggered', startedAt: new Date().toISOString() })
   runDailyScan().catch((err) =>
     console.error('[trigger] Manual scan failed:', err.message)
+  )
+})
+
+// --- Manual weekly email trigger (auth required) ---
+app.post('/api/weekly/trigger', (req, res) => {
+  if (!requireAdmin(req, res)) return
+  res.json({ status: 'triggered', startedAt: new Date().toISOString() })
+  runWeeklySummary().catch((err) =>
+    console.error('[trigger] Weekly summary failed:', err.message)
   )
 })
 
