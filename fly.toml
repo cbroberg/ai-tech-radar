@@ -25,3 +25,7 @@ primary_region = "arn"
 [[vm]]
   size = "shared-cpu-1x"
   memory = "512mb"
+
+[[mounts]]
+  source = "radar_data"
+  destination = "/data"

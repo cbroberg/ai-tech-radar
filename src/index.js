@@ -1,6 +1,10 @@
 import express from 'express'
 import { config, validateConfig } from './config.js'
 import { startScheduler, getSchedulerStatus } from './scheduler.js'
+import { runMigrations } from './db/migrate.js'
+import { runAllScrapers } from './orchestrator.js'
+import { getSourceStatus } from './db/source-runs.js'
+import { getArticlesByScore } from './db/articles.js'
 
 // --- Validate env vars before starting ---
 try {
@@ -9,6 +13,9 @@ try {
   console.error(`[startup] ${err.message}`)
   process.exit(1)
 }
+
+// --- Run DB migrations ---
+await runMigrations()
 
 const app = express()
 app.use(express.json())
@@ -31,15 +38,27 @@ app.post('/api/scan/trigger', (req, res) => {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
-  // Run async, respond immediately
   res.json({ status: 'triggered', startedAt: new Date().toISOString() })
-
   runDailyScan().catch((err) =>
     console.error('[trigger] Manual scan failed:', err.message)
   )
 })
 
-// --- Stub endpoints — implemented in later phases ---
+// --- Articles ---
+app.get('/api/articles', async (req, res) => {
+  const minScore = parseFloat(req.query.min_score ?? '0')
+  const limit = parseInt(req.query.limit ?? '50')
+  const articles = await getArticlesByScore({ minScore, limit })
+  res.json(articles)
+})
+
+// --- Source monitoring ---
+app.get('/api/sources/status', (_req, res) => {
+  const runs = getSourceStatus()
+  res.json(runs)
+})
+
+// --- Stub endpoints — Phase 4 ---
 app.get('/api/digest/today', (_req, res) => {
   res.json({ status: 'not_implemented', phase: 4 })
 })
@@ -48,21 +67,14 @@ app.get('/api/digest/latest', (_req, res) => {
   res.json({ status: 'not_implemented', phase: 4 })
 })
 
-app.get('/api/articles', (_req, res) => {
-  res.json({ status: 'not_implemented', phase: 4 })
-})
-
-app.get('/api/sources/status', (_req, res) => {
-  res.json({ status: 'not_implemented', phase: 2 })
-})
-
-// --- Scan pipeline (phases 2-4 will fill this in) ---
+// --- Scan pipeline ---
 async function runDailyScan() {
   console.log('[scan] Starting daily scan...')
-  // Phase 2: orchestrator.run()
-  // Phase 3: processors
+  const stats = await runAllScrapers()
+  // Phase 3: processors (scoring, summarizing)
   // Phase 4: digest + delivery
-  console.log('[scan] Daily scan complete (stub)')
+  console.log(`[scan] Done — ${stats.totalFound} found, ${stats.totalNew} new`)
+  return stats
 }
 
 async function runWeeklySummary() {

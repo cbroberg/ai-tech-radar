@@ -1,14 +1,12 @@
-// Central config — all env vars in one place
 export const config = {
   server: {
     port: parseInt(process.env.PORT || '3000'),
     adminToken: process.env.ADMIN_TOKEN,
   },
 
-  supabase: {
-    url: process.env.SUPABASE_URL,
-    anonKey: process.env.SUPABASE_ANON_KEY,
-    serviceKey: process.env.SUPABASE_SERVICE_KEY,
+  db: {
+    // Fly volume in production, local file in dev
+    path: process.env.DB_PATH || './data/radar.db',
   },
 
   anthropic: {
@@ -40,8 +38,6 @@ export const config = {
 
 export function validateConfig() {
   const required = [
-    ['SUPABASE_URL', config.supabase.url],
-    ['SUPABASE_SERVICE_KEY', config.supabase.serviceKey],
     ['ANTHROPIC_API_KEY', config.anthropic.apiKey],
     ['DISCORD_WEBHOOK_URL', config.notifications.discordWebhookUrl],
   ]
