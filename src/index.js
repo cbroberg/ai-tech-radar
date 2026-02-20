@@ -23,7 +23,7 @@ try {
 }
 
 // --- Run DB migrations ---
-await runMigrations()
+runMigrations()
 
 const app = express()
 app.use(express.json())

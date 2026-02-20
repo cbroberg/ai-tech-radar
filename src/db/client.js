@@ -5,18 +5,23 @@ import { dirname } from 'path'
 import { config } from '../config.js'
 import * as schema from './schema.js'
 
+let _sqlite = null
 let _db = null
+
+export function getSqlite() {
+  if (_sqlite) return _sqlite
+
+  mkdirSync(dirname(config.db.path), { recursive: true })
+
+  _sqlite = new Database(config.db.path)
+  _sqlite.exec('PRAGMA journal_mode = WAL;')
+  _sqlite.exec('PRAGMA foreign_keys = ON;')
+
+  return _sqlite
+}
 
 export function getDb() {
   if (_db) return _db
-
-  // Ensure data directory exists
-  mkdirSync(dirname(config.db.path), { recursive: true })
-
-  const sqlite = new Database(config.db.path)
-  sqlite.exec('PRAGMA journal_mode = WAL;')
-  sqlite.exec('PRAGMA foreign_keys = ON;')
-
-  _db = drizzle(sqlite, { schema })
+  _db = drizzle(getSqlite(), { schema })
   return _db
 }
