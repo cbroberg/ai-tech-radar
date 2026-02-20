@@ -13,7 +13,9 @@ import { buildDailyDigest } from './digest/builder.js'
 import { sendDailyDigest, sendWeeklyDiscordSummary } from './digest/discord.js'
 import { buildAndSendWeeklyEmail } from './digest/email-weekly.js'
 import { saveDigest } from './db/digests.js'
-import { getSqlite } from './db/client.js'
+import { getSqlite, vecLoaded } from './db/client.js'
+import { embedNewArticles, embedQuery } from './processors/embedder.js'
+import { semanticSearch } from './db/vector-search.js'
 
 // --- Validate env vars before starting ---
 try {
@@ -33,6 +35,7 @@ console.log(`  Serper     : ${config.serper.apiKey ? 'enabled' : 'disabled (no k
 console.log(`  Email      : ${config.notifications.resendApiKey ? `enabled → ${config.notifications.notificationEmail}` : 'disabled (no key)'}`)
 console.log(`  ProductHunt: ${config.sources.productHuntToken ? 'enabled' : 'disabled (no key)'}`)
 console.log(`  Dev.to     : ${config.sources.devtoApiKey ? 'enabled' : 'disabled (no key)'}`)
+console.log(`  Vector     : ${vecLoaded ? (config.voyage.apiKey ? 'enabled' : 'loaded (no VOYAGE_API_KEY)') : 'disabled'}`)
 
 const app = express()
 app.use(express.json())
@@ -99,6 +102,23 @@ app.get('/api/digest/latest', (_req, res) => {
   res.json(digest)
 })
 
+// --- Semantic search ---
+app.get('/api/search', async (req, res) => {
+  const q = req.query.q?.trim()
+  if (!q) return res.status(400).json({ error: 'Missing ?q= query parameter' })
+  if (!vecLoaded) return res.status(503).json({ error: 'Vector search not available' })
+  if (!config.voyage.apiKey) return res.status(503).json({ error: 'VOYAGE_API_KEY not configured' })
+
+  const limit = Math.min(parseInt(req.query.limit ?? '10'), 50)
+  try {
+    const queryEmbedding = await embedQuery(q)
+    const results = semanticSearch(queryEmbedding, { limit })
+    res.json({ query: q, count: results.length, results })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // --- Source monitoring ---
 app.get('/api/sources/status', (_req, res) => {
   res.json(getSourceStatus())
@@ -129,6 +149,13 @@ async function runDailyScan() {
     }
   } catch (err) {
     console.error('[scan] Processing phase failed:', err.message)
+  }
+
+  // Phase 6: embeddings
+  try {
+    await embedNewArticles()
+  } catch (err) {
+    console.error('[scan] Embedding phase failed:', err.message)
   }
 
   // Phase 4: digest + Discord

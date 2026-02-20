@@ -1,4 +1,4 @@
-import { getSqlite } from './client.js'
+import { getSqlite, vecLoaded } from './client.js'
 
 export function runMigrations() {
   const sqlite = getSqlite()
@@ -58,6 +58,22 @@ export function runMigrations() {
       active INTEGER DEFAULT 1
     );
   `)
+
+  // Add embedded column to articles if not yet present (idempotent)
+  try {
+    sqlite.exec('ALTER TABLE articles ADD COLUMN embedded INTEGER DEFAULT 0')
+  } catch { /* column already exists */ }
+
+  // Create vec0 virtual table for vector similarity search
+  if (vecLoaded) {
+    sqlite.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS vec_articles USING vec0(
+        article_id TEXT PRIMARY KEY,
+        embedding FLOAT[512]
+      )
+    `)
+    console.log('[db] vec_articles table ready')
+  }
 
   // Seed keywords if table is empty — use raw sqlite to avoid Drizzle ORM overhead
   const { count } = sqlite.query('SELECT COUNT(*) as count FROM watch_keywords').get()

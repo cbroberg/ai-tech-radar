@@ -39,6 +39,8 @@ Live: **https://ai-tech-radar.fly.dev**
 | Scheduler | node-cron | In-process, no external dependency |
 | Database | SQLite via Bun + Drizzle ORM | Persisted on Fly.io volume |
 | AI | Anthropic Claude API (`claude-sonnet-4-6`) | Scoring, summarization, digest intro |
+| Embeddings | Voyage AI (`voyage-3-lite`) | 512-dim vectors, semantic search (optional) |
+| Vector search | sqlite-vec | `vec0` virtual table, cosine similarity |
 | Search | Serper.dev | Google Search results (2,500 free queries) |
 | Hosting | Fly.io — Stockholm region (`arn`) | Always-on, ~$2.40/month |
 | Daily digest | Discord webhook | Rich embeds per category |
@@ -72,7 +74,8 @@ ai-tech-radar/
 │   ├── processors/
 │   │   ├── dedup.js             # Jaccard title similarity (threshold 0.65)
 │   │   ├── relevance-scorer.js  # Claude batch scoring + categorization
-│   │   └── summarizer.js        # Claude summaries for top 20 articles
+│   │   ├── summarizer.js        # Claude summaries for top 20 articles
+│   │   └── embedder.js          # Voyage AI embeddings (batch 64, Float32)
 │   │
 │   ├── digest/
 │   │   ├── builder.js           # Groups by category, sorts by score, Claude intro
@@ -85,7 +88,8 @@ ai-tech-radar/
 │       ├── schema.js            # Drizzle schema definitions
 │       ├── articles.js          # Article CRUD
 │       ├── digests.js           # Digest CRUD + weekly article query
-│       └── source-runs.js       # Per-source run monitoring
+│       ├── source-runs.js       # Per-source run monitoring
+│       └── vector-search.js     # Semantic search via sqlite-vec
 │
 ├── scripts/
 │   └── fly-secrets-sync.sh      # Sync .env → Fly.io secrets
@@ -136,6 +140,7 @@ cp .env.example .env
 | `NOTIFICATION_EMAIL` | Where weekly emails are sent |
 | `PRODUCTHUNT_TOKEN` | Product Hunt GraphQL access |
 | `DEVTO_API_KEY` | Higher rate limits on Dev.to API |
+| `VOYAGE_API_KEY` | Semantic search via [Voyage AI](https://dash.voyageai.com/api-keys) — free tier 50M tokens/month |
 
 ### Run
 
@@ -204,6 +209,7 @@ All `POST` endpoints require `Authorization: Bearer <ADMIN_TOKEN>`.
 | `GET` | `/api/digest/today` | Today's digest record |
 | `GET` | `/api/digest/latest` | Most recent digest record |
 | `GET` | `/api/sources/status` | Latest run status per source |
+| `GET` | `/api/search` | Semantic search — query params: `?q=autonomous+agents&limit=10` |
 | `POST` | `/api/scan/trigger` | Trigger a full daily scan immediately |
 | `POST` | `/api/weekly/trigger` | Trigger weekly email immediately |
 
@@ -226,6 +232,9 @@ curl -X POST https://ai-tech-radar.fly.dev/api/scan/trigger \
 # Manual weekly email
 curl -X POST https://ai-tech-radar.fly.dev/api/weekly/trigger \
   -H "Authorization: Bearer <ADMIN_TOKEN>"
+
+# Semantic search (requires VOYAGE_API_KEY)
+curl "https://ai-tech-radar.fly.dev/api/search?q=autonomous+AI+agents&limit=5"
 ```
 
 ---
@@ -250,6 +259,9 @@ curl -X POST https://ai-tech-radar.fly.dev/api/weekly/trigger \
       ├─ Claude summarization (top 20, parallel)
       │   → 2–3 sentence summaries
       │
+      ├─ Voyage AI embeddings (articles with score ≥ 0.4, batch 64)
+      │   → stored as Float32 vectors in vec_articles (512 dims)
+      │
       └─ Discord digest (grouped by category, sorted by score)
 
 07:00 UTC Monday — Weekly summary
@@ -271,6 +283,7 @@ curl -X POST https://ai-tech-radar.fly.dev/api/weekly/trigger \
 | Anthropic API (~25 Claude calls/day) | Pay-as-you-go | ~$3–8 |
 | Serper.dev (5 queries/day = ~150/month) | 2,500 free queries | $0 |
 | Resend (4 emails/month) | Free tier | $0 |
+| Voyage AI embeddings (~200 articles/day) | Free tier (50M tokens) | $0 |
 | Discord webhooks | Free | $0 |
 | **Total** | | **~$5–10/month** |
 

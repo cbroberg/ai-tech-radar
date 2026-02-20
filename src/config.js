@@ -18,6 +18,12 @@ export const config = {
     apiKey: process.env.SERPER_API_KEY,
   },
 
+  voyage: {
+    apiKey: process.env.VOYAGE_API_KEY,
+    model: 'voyage-3-lite',
+    dimensions: 512,
+  },
+
   sources: {
     productHuntToken: process.env.PRODUCTHUNT_TOKEN,
     devtoApiKey: process.env.DEVTO_API_KEY,
