@@ -63,46 +63,65 @@ cp .env.example .env
 ```
 
 Required keys:
-- `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` — [supabase.com](https://supabase.com)
 - `ANTHROPIC_API_KEY` — [console.anthropic.com](https://console.anthropic.com)
-- `DISCORD_WEBHOOK_URL` — Discord channel → Integrations → Webhooks
+- `DISCORD_WEBHOOK_URL` — Discord channel → Integrations → Webhooks → New Webhook
+
+Optional:
 - `SERPER_API_KEY` — [serper.dev](https://serper.dev) (2,500 free queries)
 - `PRODUCTHUNT_TOKEN` — [api.producthunt.com](https://api.producthunt.com)
 - `DEVTO_API_KEY` — dev.to settings
-- `RESEND_API_KEY` — [resend.com](https://resend.com)
+- `RESEND_API_KEY` + `NOTIFICATION_EMAIL` — [resend.com](https://resend.com) (weekly email)
 
-### 3. Run database migrations
+Database is SQLite — created automatically on first run. No setup needed.
 
-```bash
-# Run src/db/migrations/001_initial.sql in Supabase SQL editor
-```
-
-### 4. Run locally
+### 3. Run locally
 
 ```bash
 bun run src/index.js
 ```
 
-## Deploy to Fly.io
+## Deploy to Fly.io (personal account)
 
 ```bash
-# One-time setup
-fly launch --name ai-tech-radar --region arn --no-deploy
+# 1. Install flyctl
+brew install flyctl
 
-# Set secrets
+# 2. Login — make sure you're on your personal account, not an org
+fly auth login
+fly auth whoami   # verify
+
+# 3. Create app on personal account
+fly apps create ai-tech-radar --org personal
+
+# 4. Create persistent volume for SQLite (1 GB, Stockholm region)
+fly volumes create radar_data --app ai-tech-radar --region arn --size 1
+
+# 5. Set secrets
 fly secrets set \
   ANTHROPIC_API_KEY=sk-ant-... \
-  SUPABASE_URL=https://xxx.supabase.co \
-  SUPABASE_SERVICE_KEY=eyJ... \
-  SERPER_API_KEY=... \
   DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/... \
+  ADMIN_TOKEN=$(openssl rand -hex 32) \
+  --app ai-tech-radar
+
+# Optional secrets (skip if you don't have them yet)
+fly secrets set \
+  SERPER_API_KEY=... \
   RESEND_API_KEY=re_... \
+  NOTIFICATION_EMAIL=you@example.com \
   PRODUCTHUNT_TOKEN=... \
   DEVTO_API_KEY=... \
-  NOTIFICATION_EMAIL=you@example.com
+  --app ai-tech-radar
 
-# Deploy
-fly deploy
+# 6. Deploy
+fly deploy --app ai-tech-radar
+
+# 7. Verify
+fly logs --app ai-tech-radar
+curl https://ai-tech-radar.fly.dev/health
+
+# 8. Trigger a manual scan to test (use the ADMIN_TOKEN you set above)
+curl -X POST https://ai-tech-radar.fly.dev/api/scan/trigger \
+  -H "Authorization: Bearer <your-admin-token>"
 ```
 
 ## API Endpoints
