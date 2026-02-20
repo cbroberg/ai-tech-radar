@@ -1,0 +1,23 @@
+{
+  "name": "ai-tech-radar",
+  "version": "1.0.0",
+  "description": "Autonomous daily AI tech intelligence scanner",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "bun run src/index.js",
+    "dev": "bun --watch src/index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@supabase/supabase-js": "^2.49.1",
+    "cheerio": "^1.0.0",
+    "express": "^4.21.2",
+    "node-cron": "^3.0.3",
+    "rss-parser": "^3.13.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "bun": ">=1.1.0"
+  }
+}
