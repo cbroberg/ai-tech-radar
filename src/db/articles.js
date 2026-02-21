@@ -1,5 +1,5 @@
 import { eq, desc, gte, isNull, and, inArray, like } from 'drizzle-orm'
-import { getDb } from './client.js'
+import { getDb, getSqlite } from './client.js'
 import { articles } from './schema.js'
 
 export function upsertArticles(items) {
@@ -83,4 +83,55 @@ export function updateScores(updates) {
     if (Object.keys(patch).length === 0) continue
     db.update(articles).set(patch).where(eq(articles.id, id)).run()
   }
+}
+
+export function toggleStar(id) {
+  const db = getDb()
+  const article = db.select({ starred: articles.starred }).from(articles).where(eq(articles.id, id)).get()
+  if (!article) return null
+  const newStarred = !article.starred
+  db.update(articles)
+    .set({ starred: newStarred, starredAt: newStarred ? new Date().toISOString() : null })
+    .where(eq(articles.id, id))
+    .run()
+  return newStarred
+}
+
+export function getStarredArticles() {
+  const db = getDb()
+  return db
+    .select()
+    .from(articles)
+    .where(eq(articles.starred, true))
+    .orderBy(desc(articles.starredAt))
+    .all()
+}
+
+export function deleteOldArticles() {
+  const sqlite = getSqlite()
+  const now = new Date()
+  const d90 = new Date(now - 90 * 24 * 60 * 60 * 1000).toISOString()
+  const d180 = new Date(now - 180 * 24 * 60 * 60 * 1000).toISOString()
+
+  const countBefore = sqlite.query('SELECT COUNT(*) as n FROM articles').get().n
+
+  // 90–180 days: delete low-score unstarred articles
+  sqlite.prepare(
+    `DELETE FROM articles WHERE scraped_at < ? AND scraped_at >= ? AND (relevance_score IS NULL OR relevance_score < 0.5) AND starred = 0`
+  ).run(d90, d180)
+
+  // >180 days: delete all unstarred articles
+  sqlite.prepare(
+    `DELETE FROM articles WHERE scraped_at < ? AND starred = 0`
+  ).run(d180)
+
+  const countAfter = sqlite.query('SELECT COUNT(*) as n FROM articles').get().n
+  const deleted = countBefore - countAfter
+
+  // Clean orphaned vec_articles entries
+  try {
+    sqlite.exec(`DELETE FROM vec_articles WHERE article_id NOT IN (SELECT id FROM articles)`)
+  } catch { /* vec table may not exist */ }
+
+  return deleted
 }

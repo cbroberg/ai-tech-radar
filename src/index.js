@@ -5,7 +5,7 @@ import { startScheduler, getSchedulerStatus } from './scheduler.js'
 import { runMigrations } from './db/migrate.js'
 import { runAllScrapers, getAllScraperNames, runScraperByName } from './orchestrator.js'
 import { getSourceStatus } from './db/source-runs.js'
-import { getArticlesByScore, getUnscoredArticles, getArticleById } from './db/articles.js'
+import { getArticlesByScore, getUnscoredArticles, getArticleById, toggleStar, getStarredArticles, deleteOldArticles } from './db/articles.js'
 import { getTodayDigest, getLatestDigest } from './db/digests.js'
 import { dedupByTitle } from './processors/dedup.js'
 import { scoreArticles } from './processors/relevance-scorer.js'
@@ -110,10 +110,21 @@ app.get('/api/articles', (req, res) => {
   res.json(items)
 })
 
+app.get('/api/articles/starred', (_req, res) => {
+  res.json(getStarredArticles())
+})
+
 app.get('/api/articles/:id', (req, res) => {
   const article = getArticleById(req.params.id)
   if (!article) return res.status(404).json({ error: 'Article not found' })
   res.json(article)
+})
+
+app.post('/api/articles/:id/star', (req, res) => {
+  if (!requireAdmin(req, res)) return
+  const result = toggleStar(req.params.id)
+  if (result === null) return res.status(404).json({ error: 'Article not found' })
+  res.json({ starred: result })
 })
 
 // --- Feed (homepage composite) ---
@@ -202,6 +213,10 @@ app.get('/api/admin/status', (req, res) => {
   try {
     embedded = sqlite.query('SELECT COUNT(*) as n FROM vec_articles').get()?.n ?? 0
   } catch { /* vec table may not exist */ }
+  const { starred } = sqlite.query('SELECT COUNT(*) as starred FROM articles WHERE starred = 1').get()
+  const { oldArticles } = sqlite.query(
+    `SELECT COUNT(*) as oldArticles FROM articles WHERE scraped_at < datetime('now', '-90 days') AND starred = 0`
+  ).get()
   const { lastRun } = getSchedulerStatus()
   const builtinNames = getAllScraperNames()
   const customSources = getCustomSources()
@@ -210,7 +225,7 @@ app.get('/api/admin/status', (req, res) => {
     ...customSources.map((s) => ({ name: s.name, id: s.id, feedUrl: s.feed_url, custom: true })),
   ]
   res.json({
-    db: { articles, scored, embedded },
+    db: { articles, scored, embedded, starred, oldArticles },
     lastRun: lastRun ?? 'never',
     sources: getSourceStatus(),
     allSources,
@@ -236,6 +251,14 @@ app.post('/api/admin/scan/:source', (req, res) => {
   runScraperByName(source).catch((err) =>
     console.error(`[admin] Scrape ${source} failed:`, err.message)
   )
+})
+
+// --- Cleanup ---
+app.post('/api/admin/cleanup', (req, res) => {
+  if (!requireAdmin(req, res)) return
+  const deleted = deleteOldArticles()
+  console.log(`[cleanup] Manual cleanup: ${deleted} articles deleted`)
+  res.json({ deleted })
 })
 
 // --- Custom RSS sources ---
@@ -453,7 +476,7 @@ app.get('*', (_req, res) => {
 startScheduler({ onDailyScan: runDailyScan, onWeeklySummary: runWeeklySummary })
 
 const { port } = config.server
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
   console.log(`[server] Listening on port ${port} — https://ai-tech-radar.fly.dev`)
 })
 

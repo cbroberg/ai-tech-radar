@@ -17,6 +17,8 @@ export const articles = sqliteTable(
     publishedAt: text('published_at'),
     scrapedAt: text('scraped_at').default(sql`(datetime('now'))`),
     digestIncluded: integer('digest_included', { mode: 'boolean' }).default(false),
+    starred: integer('starred', { mode: 'boolean' }).default(false),
+    starredAt: text('starred_at'),
   },
   (t) => [
     index('idx_articles_source').on(t.source),

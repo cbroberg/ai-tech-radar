@@ -20,6 +20,23 @@ export async function fetchArticle(id) {
   return res.json()
 }
 
+export async function toggleStar(id) {
+  const token = sessionStorage.getItem('admin_token')
+  if (!token) throw new Error('Not authenticated')
+  const res = await fetch(`/api/articles/${id}/star`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Star failed: ${res.status}`)
+  return res.json()
+}
+
+export async function fetchStarred() {
+  const res = await fetch('/api/articles/starred')
+  if (!res.ok) throw new Error(`Starred failed: ${res.status}`)
+  return res.json()
+}
+
 export async function fetchSearch(query, limit = 10) {
   const params = new URLSearchParams({ q: query, limit })
   const res = await fetch(`/api/search?${params}`)

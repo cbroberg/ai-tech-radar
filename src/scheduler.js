@@ -1,8 +1,10 @@
 import cron from 'node-cron'
 import { config } from './config.js'
+import { deleteOldArticles } from './db/articles.js'
 
 let dailyJob = null
 let weeklyJob = null
+let cleanupJob = null
 let lastRun = null
 let nextRunDaily = null
 
@@ -42,15 +44,32 @@ export function startScheduler({ onDailyScan, onWeeklySummary }) {
     { timezone: tz }
   )
 
+  // Monthly cleanup: 1st of each month at 04:00
+  cleanupJob = cron.schedule(
+    '0 4 1 * *',
+    () => {
+      console.log(`[scheduler] Monthly cleanup triggered at ${new Date().toISOString()}`)
+      try {
+        const deleted = deleteOldArticles()
+        console.log(`[cleanup] Monthly cleanup: ${deleted} articles deleted`)
+      } catch (err) {
+        console.error('[scheduler] Monthly cleanup failed:', err.message)
+      }
+    },
+    { timezone: tz }
+  )
+
   nextRunDaily = computeNextRun(config.schedule.daily)
 
   console.log(`[scheduler] Daily scan scheduled: ${config.schedule.daily} (${tz})`)
   console.log(`[scheduler] Weekly summary scheduled: ${config.schedule.weekly} (${tz})`)
+  console.log(`[scheduler] Monthly cleanup scheduled: 0 4 1 * * (${tz})`)
 }
 
 export function stopScheduler() {
   dailyJob?.stop()
   weeklyJob?.stop()
+  cleanupJob?.stop()
 }
 
 export function getSchedulerStatus() {

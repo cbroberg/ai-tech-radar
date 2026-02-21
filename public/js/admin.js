@@ -164,6 +164,7 @@ function renderPage(data) {
   document.getElementById('stat-articles').textContent  = data.db.articles.toLocaleString()
   document.getElementById('stat-scored').textContent    = data.db.scored.toLocaleString()
   document.getElementById('stat-embedded').textContent  = data.db.embedded.toLocaleString()
+  document.getElementById('stat-starred').textContent   = (data.db.starred ?? 0).toLocaleString()
   document.getElementById('stat-sources').textContent   = data.allSources.length
   document.getElementById('last-run-label').textContent = `Last scan: ${timeAgo(data.lastRun)}`
 
@@ -292,6 +293,20 @@ document.getElementById('btn-scan-all').addEventListener('click', async () => {
 document.getElementById('btn-refresh').addEventListener('click', async () => {
   const data = await apiFetch('/api/admin/status')
   renderPage(data)
+})
+
+document.getElementById('btn-cleanup').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-cleanup')
+  btn.disabled = true
+  btn.textContent = '🗑 Running…'
+  const res = await apiFetch('/api/admin/cleanup', { method: 'POST' })
+  btn.textContent = `🗑 Deleted ${res.deleted ?? 0} articles`
+  const data = await apiFetch('/api/admin/status')
+  renderPage(data)
+  setTimeout(() => {
+    btn.disabled = false
+    btn.textContent = '🗑 Cleanup Old Articles'
+  }, 4000)
 })
 
 // ── Add keyword form ───────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
-import { fetchFeed, fetchArticle, fetchSearch } from './api.js'
+import { fetchFeed, fetchArticle, fetchSearch, toggleStar, fetchStarred } from './api.js'
 import {
   renderHero, renderArticleGrid, renderCategoryTabs,
-  renderDigestBanner, renderSearchResult, scoreBadge, categoryBadge, timeAgo,
+  renderDigestBanner, renderSearchResult, scoreBadge, categoryBadge, timeAgo, starButton,
 } from './components.js'
 
 // ── Theme ────────────────────────────────────────────────────────────────────
@@ -80,15 +80,26 @@ document.addEventListener('click', (e) => {
 
 async function renderHomeView() {
   const feed = await fetchFeed()
+  let starredArticles = []
+  try { starredArticles = await fetchStarred() } catch { /* ok */ }
 
   // Build flat sorted array for "all" tab
   const allArticles = Object.values(feed.grouped)
     .flat()
     .sort((a, b) => (b.relevanceScore ?? 0) - (a.relevanceScore ?? 0))
 
+  // Merge starred state into feed articles
+  const starredIds = new Set(starredArticles.map(a => a.id))
+  for (const a of allArticles) a.starred = starredIds.has(a.id)
+  if (feed.topStory) feed.topStory.starred = starredIds.has(feed.topStory.id)
+  for (const list of Object.values(feed.grouped)) {
+    for (const a of list) a.starred = starredIds.has(a.id)
+  }
+
   let activeCategory = 'all'
 
   function getVisibleArticles() {
+    if (activeCategory === 'starred') return starredArticles
     if (activeCategory === 'all') return allArticles
     return feed.grouped[activeCategory] ?? []
   }
@@ -101,7 +112,7 @@ async function renderHomeView() {
       <div class="section-header">
         <span class="section-title">${feed.total} articles</span>
       </div>
-      ${renderCategoryTabs(feed.counts, activeCategory)}
+      ${renderCategoryTabs(feed.counts, activeCategory, { starredCount: starredArticles.length })}
       <div id="article-grid-container">
         ${renderArticleGrid(visible)}
       </div>`
@@ -109,6 +120,7 @@ async function renderHomeView() {
 
   app.innerHTML = buildHTML()
   attachCardHandlers()
+  attachStarHandlers()
 
   // Category tab clicks (re-render grid only)
   app.addEventListener('click', (e) => {
@@ -123,17 +135,39 @@ async function renderHomeView() {
     // Re-render grid
     document.getElementById('article-grid-container').innerHTML = renderArticleGrid(getVisibleArticles())
     attachCardHandlers()
+    attachStarHandlers()
   })
 }
 
 function attachCardHandlers() {
   app.querySelectorAll('.article-card, .hero-card').forEach(card => {
     const handler = (e) => {
+      if (e.target.closest('.star-btn')) return
       if (e.type === 'keydown' && e.key !== 'Enter') return
       navigate(`/articles/${card.dataset.id}`)
     }
     card.addEventListener('click', handler)
     card.addEventListener('keydown', handler)
+  })
+}
+
+function attachStarHandlers() {
+  app.querySelectorAll('.star-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation()
+      const id = btn.dataset.starId
+      // Optimistic toggle
+      const wasStarred = btn.classList.contains('starred')
+      btn.classList.toggle('starred')
+      btn.textContent = wasStarred ? '☆' : '★'
+      try {
+        await toggleStar(id)
+      } catch {
+        // Revert on failure
+        btn.classList.toggle('starred')
+        btn.textContent = wasStarred ? '★' : '☆'
+      }
+    })
   })
 }
 
@@ -206,6 +240,7 @@ async function renderDetailView(id) {
       <div class="detail-meta">
         ${categoryBadge(primary)}
         ${scoreBadge(article.relevanceScore)}
+        ${starButton(article)}
       </div>
       <h1 class="detail-title">${esc(article.title)}</h1>
       <div class="detail-byline">
@@ -227,6 +262,8 @@ async function renderDetailView(id) {
     navigate('/')
     document.title = 'AI Tech Radar'
   })
+
+  attachStarHandlers()
 }
 
 // ── Cmd+K search shortcut ─────────────────────────────────────────────────────

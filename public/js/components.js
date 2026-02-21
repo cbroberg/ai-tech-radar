@@ -40,6 +40,11 @@ function esc(str) {
   return (str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
+export function starButton(article) {
+  const isStarred = article.starred
+  return `<button class="star-btn ${isStarred ? 'starred' : ''}" data-star-id="${esc(article.id)}" title="${isStarred ? 'Unstar' : 'Star'}">${isStarred ? '★' : '☆'}</button>`
+}
+
 export function renderHero(article) {
   if (!article) return ''
   const cats = article.categories ?? []
@@ -54,6 +59,7 @@ export function renderHero(article) {
           <span class="hero-label">Top Story</span>
           ${categoryBadge(primary)}
           ${scoreBadge(article.relevanceScore)}
+          ${starButton(article)}
         </div>
         <h2 class="hero-title">${esc(article.title)}</h2>
         ${article.summary ? `<p class="hero-summary">${esc(article.summary)}</p>` : ''}
@@ -78,6 +84,7 @@ export function renderArticleCard(article) {
         <div class="card-meta">
           ${categoryBadge(primary)}
           ${scoreBadge(article.relevanceScore)}
+          ${starButton(article)}
         </div>
         <h3 class="card-title">${esc(article.title)}</h3>
         ${article.summary ? `<p class="card-summary">${esc(article.summary)}</p>` : '<p class="card-summary"></p>'}
@@ -89,10 +96,11 @@ export function renderArticleCard(article) {
     </article>`
 }
 
-export function renderCategoryTabs(counts, active) {
+export function renderCategoryTabs(counts, active, { starredCount = 0 } = {}) {
   const total = Object.values(counts).reduce((a, b) => a + b, 0)
   const tabs = [
     { key: 'all', label: 'All', count: total },
+    { key: 'starred', label: '★ Starred', count: starredCount },
     { key: 'ai',     label: 'AI & Agents',  count: counts.ai     ?? 0 },
     { key: 'stack',  label: 'Stack',        count: counts.stack  ?? 0 },
     { key: 'devops', label: 'DevOps',       count: counts.devops ?? 0 },
