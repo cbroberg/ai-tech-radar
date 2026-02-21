@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — AI Tech Radar</title>
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* Admin-specific styles */
+    .admin-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 0 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 28px;
+    }
+    .admin-title { font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+    .admin-title span { color: var(--accent); }
+
+    .stat-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+    }
+    .stat-value { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+    .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+
+    .action-bar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 28px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sources-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .sources-table th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-muted);
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sources-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      vertical-align: middle;
+    }
+    .sources-table tr:last-child td { border-bottom: none; }
+    .sources-table tr:hover td { background: var(--surface-2); }
+
+    .source-name { font-family: monospace; font-size: 12px; color: var(--text); }
+    .source-group { font-size: 11px; color: var(--text-faint); }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 9px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .status-success { background: rgba(16,185,129,.15); color: #34d399; }
+    .status-failed  { background: rgba(220,38,38,.15);  color: #f87171; }
+    .status-running { background: rgba(245,158,11,.15); color: #fbbf24; }
+    .status-never   { background: var(--surface-2);     color: var(--text-faint); }
+
+    .error-tip {
+      font-size: 11px;
+      color: #f87171;
+      margin-top: 2px;
+      max-width: 280px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .rescrape-btn {
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .rescrape-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(124,58,237,.1); }
+    .rescrape-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .rescrape-btn.running { color: #fbbf24; border-color: #fbbf24; background: rgba(245,158,11,.1); }
+    .rescrape-btn.done    { color: #34d399; border-color: #34d399; background: rgba(16,185,129,.1); }
+
+    /* Login overlay */
+    .login-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+    .login-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      width: 100%;
+      max-width: 360px;
+    }
+    .login-box h2 { font-size: 18px; margin-bottom: 6px; }
+    .login-box p  { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+    .login-input {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: 14px;
+      font-family: monospace;
+      margin-bottom: 12px;
+      outline: none;
+      box-sizing: border-box;
+    }
+    .login-input:focus { border-color: var(--accent); }
+    .login-error { font-size: 12px; color: #f87171; margin-top: 8px; min-height: 16px; }
+
+    .num { font-variant-numeric: tabular-nums; }
+    .muted { color: var(--text-muted); }
+    .faint { color: var(--text-faint); }
+    .running-pulse { animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+
+    .delete-btn {
+      padding: 3px 9px;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(220,38,38,.4);
+      background: transparent;
+      color: #f87171;
+      cursor: pointer;
+      transition: all .15s;
+      margin-left: 6px;
+    }
+    .delete-btn:hover { background: rgba(220,38,38,.15); border-color: #f87171; }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 40px 0 16px;
+      padding-top: 32px;
+      border-top: 1px solid var(--border);
+    }
+    .section-title { font-size: 18px; font-weight: 700; }
+    .section-title span { color: var(--accent); }
+
+    .add-form {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+    .add-input {
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      font-family: monospace;
+    }
+    .add-input:focus { border-color: var(--accent); }
+    .add-input.wide { flex: 1; min-width: 200px; }
+    .add-select {
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      cursor: pointer;
+    }
+    .add-select:focus { border-color: var(--accent); }
+    .form-error { font-size: 12px; color: #f87171; margin-top: 4px; width: 100%; }
+
+    .cat-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .cat-ai    { background: rgba(124,58,237,.2); color: #a78bfa; }
+    .cat-stack { background: rgba(37,99,235,.2);  color: #60a5fa; }
+    .cat-devops{ background: rgba(5,150,105,.2);  color: #34d399; }
+    .cat-trend { background: rgba(220,38,38,.2);  color: #f87171; }
+  </style>
+</head>
+<body>
+  <!-- Login overlay -->
+  <div class="login-overlay" id="login-overlay">
+    <div class="login-box">
+      <h2>Admin Access</h2>
+      <p>Enter your admin token to continue.</p>
+      <input class="login-input" type="password" id="token-input" placeholder="Admin token" autocomplete="current-password">
+      <button class="btn btn-primary" style="width:100%" id="login-btn">Sign in</button>
+      <div class="login-error" id="login-error"></div>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <nav class="nav-container">
+      <a href="/" class="site-logo">
+        <img src="/assets/favicon.svg" alt="" width="28" height="28">
+        <span>AI Tech Radar</span>
+      </a>
+      <div class="nav-actions">
+        <a href="/" class="nav-link">← Feed</a>
+        <button class="theme-toggle" id="theme-toggle" title="Toggle theme"></button>
+      </div>
+    </nav>
+  </header>
+
+  <main id="app" style="max-width:1100px;margin:0 auto;padding:0 20px 60px;">
+    <div class="admin-header">
+      <h1 class="admin-title">Admin <span>Panel</span></h1>
+      <span id="last-run-label" class="faint" style="font-size:13px;"></span>
+    </div>
+
+    <!-- Stats -->
+    <div class="stat-bar" id="stat-bar">
+      <div class="stat-card"><div class="stat-value" id="stat-articles">—</div><div class="stat-label">Total Articles</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-scored">—</div><div class="stat-label">Scored</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-embedded">—</div><div class="stat-label">Embedded</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-sources">—</div><div class="stat-label">Sources</div></div>
+    </div>
+
+    <!-- Actions -->
+    <div class="action-bar">
+      <button class="btn btn-primary" id="btn-scan-all">⚡ Rescrape All + Score</button>
+      <button class="btn btn-outline" id="btn-refresh">↻ Refresh</button>
+    </div>
+
+    <!-- Sources table -->
+    <table class="sources-table" id="sources-table">
+      <thead>
+        <tr>
+          <th>Source</th>
+          <th>Status</th>
+          <th>Found</th>
+          <th>New</th>
+          <th>Last run</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="sources-tbody">
+        <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-faint)">Loading…</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Keywords section -->
+    <div class="section-header">
+      <h2 class="section-title">Keywords <span>&amp; Topics</span></h2>
+      <span class="faint" style="font-size:12px;">Controls what gets high relevance scores</span>
+    </div>
+    <div class="add-form" id="add-keyword-form">
+      <input class="add-input wide" id="new-kw" placeholder="e.g. Claude 5, Sonnet, visual agent" autocomplete="off">
+      <select class="add-select" id="new-kw-cat">
+        <option value="ai">AI</option>
+        <option value="stack">Stack</option>
+        <option value="devops">DevOps</option>
+        <option value="trend">Trend</option>
+      </select>
+      <input class="add-input" id="new-kw-priority" type="number" value="7" min="1" max="10" style="width:64px;" title="Priority 1–10">
+      <button class="btn btn-primary" id="btn-add-kw">Add keyword</button>
+      <div class="form-error" id="kw-error"></div>
+    </div>
+    <table class="sources-table" id="keywords-table">
+      <thead>
+        <tr>
+          <th>Keyword</th>
+          <th>Category</th>
+          <th>Priority</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="keywords-tbody">
+        <tr><td colspan="4" style="text-align:center;padding:40px;color:var(--text-faint)">Loading…</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Custom RSS sources section -->
+    <div class="section-header">
+      <h2 class="section-title">Custom RSS <span>Sources</span></h2>
+      <span class="faint" style="font-size:12px;">Add any RSS feed — or let AI discover it for you</span>
+    </div>
+    <!-- AI discovery row -->
+    <div class="add-form" style="margin-bottom:10px;">
+      <input class="add-input wide" id="discover-query" placeholder="Type a name (WSJ, Ars Technica) or paste an article URL…" autocomplete="off">
+      <button class="btn btn-outline" id="btn-discover" style="white-space:nowrap;">🤖 Discover feed</button>
+      <div class="form-error" id="discover-error"></div>
+    </div>
+    <!-- Manual add row -->
+    <div class="add-form" id="add-source-form">
+      <input class="add-input" id="new-src-name" placeholder="source-name" autocomplete="off" style="width:160px;">
+      <input class="add-input wide" id="new-src-url" placeholder="https://example.com/feed.xml" autocomplete="off">
+      <button class="btn btn-primary" id="btn-add-src">Add source</button>
+      <div class="form-error" id="src-error"></div>
+    </div>
+
+  </main>
+
+  <script type="module" src="/js/admin.js"></script>
+</body>
+</html>

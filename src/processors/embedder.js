@@ -37,8 +37,8 @@ function storeEmbeddings(articles, embeddings) {
 
   const batch = sqlite.transaction(() => {
     for (let i = 0; i < articles.length; i++) {
-      const float32 = new Float32Array(embeddings[i])
-      insertVec.run(articles[i].id, float32.buffer)
+      const vec = new Uint8Array(new Float32Array(embeddings[i]).buffer)
+      insertVec.run(articles[i].id, vec)
       markEmbedded.run(articles[i].id)
     }
   })

@@ -1,10 +1,11 @@
 import express from 'express'
+import Anthropic from '@anthropic-ai/sdk'
 import { config, validateConfig } from './config.js'
 import { startScheduler, getSchedulerStatus } from './scheduler.js'
 import { runMigrations } from './db/migrate.js'
-import { runAllScrapers } from './orchestrator.js'
+import { runAllScrapers, getAllScraperNames, runScraperByName } from './orchestrator.js'
 import { getSourceStatus } from './db/source-runs.js'
-import { getArticlesByScore, getUnscoredArticles } from './db/articles.js'
+import { getArticlesByScore, getUnscoredArticles, getArticleById } from './db/articles.js'
 import { getTodayDigest, getLatestDigest } from './db/digests.js'
 import { dedupByTitle } from './processors/dedup.js'
 import { scoreArticles } from './processors/relevance-scorer.js'
@@ -16,6 +17,8 @@ import { saveDigest } from './db/digests.js'
 import { getSqlite, vecLoaded } from './db/client.js'
 import { embedNewArticles, embedQuery } from './processors/embedder.js'
 import { semanticSearch } from './db/vector-search.js'
+import { getCustomSources, addCustomSource, deleteCustomSource } from './db/custom-sources.js'
+import { getKeywords, addKeyword, deleteKeyword } from './db/keywords.js'
 
 // --- Validate env vars before starting ---
 try {
@@ -39,6 +42,7 @@ console.log(`  Vector     : ${vecLoaded ? (config.voyage.apiKey ? 'enabled' : 'l
 
 const app = express()
 app.use(express.json())
+app.use(express.static('public'))
 
 // --- Health ---
 app.get('/health', (_req, res) => {
@@ -85,8 +89,35 @@ app.post('/api/weekly/trigger', (req, res) => {
 app.get('/api/articles', (req, res) => {
   const minScore = parseFloat(req.query.min_score ?? '0')
   const limit = Math.min(parseInt(req.query.limit ?? '50'), 200)
-  const articles = getArticlesByScore({ minScore, limit })
-  res.json(articles)
+  const category = req.query.category?.trim() || null
+  const items = getArticlesByScore({ minScore, limit, category })
+  res.json(items)
+})
+
+app.get('/api/articles/:id', (req, res) => {
+  const article = getArticleById(req.params.id)
+  if (!article) return res.status(404).json({ error: 'Article not found' })
+  res.json(article)
+})
+
+// --- Feed (homepage composite) ---
+app.get('/api/feed', (req, res) => {
+  const allArticles = getArticlesByScore({ minScore: 0.4, limit: 100 })
+  const grouped = { ai: [], stack: [], devops: [], trend: [], other: [] }
+  for (const article of allArticles) {
+    const cats = article.categories ?? []
+    const primary = cats.find((c) => grouped[c]) ?? 'other'
+    grouped[primary].push(article)
+  }
+  const counts = Object.fromEntries(Object.entries(grouped).map(([k, v]) => [k, v.length]))
+  const digest = getLatestDigest()
+  res.json({
+    intro: digest?.summaryMarkdown ?? null,
+    topStory: allArticles[0] ?? null,
+    grouped,
+    counts,
+    total: allArticles.length,
+  })
 })
 
 // --- Digests ---
@@ -122,6 +153,154 @@ app.get('/api/search', async (req, res) => {
 // --- Source monitoring ---
 app.get('/api/sources/status', (_req, res) => {
   res.json(getSourceStatus())
+})
+
+// --- Admin ---
+app.get('/admin', (_req, res) => {
+  res.sendFile('admin.html', { root: 'public' })
+})
+
+app.get('/api/admin/status', (req, res) => {
+  if (!requireAdmin(req, res)) return
+  const sqlite = getSqlite()
+  const { articles } = sqlite.query('SELECT COUNT(*) as articles FROM articles').get()
+  const { scored } = sqlite.query(
+    'SELECT COUNT(*) as scored FROM articles WHERE relevance_score IS NOT NULL'
+  ).get()
+  let embedded = 0
+  try {
+    embedded = sqlite.query('SELECT COUNT(*) as n FROM vec_articles').get()?.n ?? 0
+  } catch { /* vec table may not exist */ }
+  const { lastRun } = getSchedulerStatus()
+  const builtinNames = getAllScraperNames()
+  const customSources = getCustomSources()
+  const allSources = [
+    ...builtinNames.map((name) => ({ name, custom: false })),
+    ...customSources.map((s) => ({ name: s.name, id: s.id, feedUrl: s.feed_url, custom: true })),
+  ]
+  res.json({
+    db: { articles, scored, embedded },
+    lastRun: lastRun ?? 'never',
+    sources: getSourceStatus(),
+    allSources,
+    keywords: getKeywords(),
+  })
+})
+
+app.post('/api/admin/scan/all', (req, res) => {
+  if (!requireAdmin(req, res)) return
+  res.json({ status: 'triggered', startedAt: new Date().toISOString() })
+  runDailyScan().catch((err) => console.error('[admin] Full scan failed:', err.message))
+})
+
+app.post('/api/admin/scan/:source', (req, res) => {
+  if (!requireAdmin(req, res)) return
+  const { source } = req.params
+  const isBuiltin = getAllScraperNames().includes(source)
+  const isCustom = getCustomSources().some((s) => s.name === source)
+  if (!isBuiltin && !isCustom) {
+    return res.status(404).json({ error: `Unknown source: ${source}` })
+  }
+  res.json({ status: 'triggered', source, startedAt: new Date().toISOString() })
+  runScraperByName(source).catch((err) =>
+    console.error(`[admin] Scrape ${source} failed:`, err.message)
+  )
+})
+
+// --- Custom RSS sources ---
+app.get('/api/admin/sources', (req, res) => {
+  if (!requireAdmin(req, res)) return
+  res.json(getCustomSources())
+})
+
+app.post('/api/admin/sources', (req, res) => {
+  if (!requireAdmin(req, res)) return
+  const { name, feedUrl } = req.body
+  if (!name || !feedUrl) return res.status(400).json({ error: 'name and feedUrl required' })
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(name)) {
+    return res.status(400).json({ error: 'name must be lowercase letters, numbers, hyphens' })
+  }
+  if (getAllScraperNames().includes(name)) {
+    return res.status(409).json({ error: `"${name}" is already a built-in source` })
+  }
+  try {
+    const id = addCustomSource(name, feedUrl)
+    res.json({ id, name, feedUrl })
+  } catch (err) {
+    const status = err.message.includes('UNIQUE') ? 409 : 500
+    res.status(status).json({ error: err.message })
+  }
+})
+
+app.delete('/api/admin/sources/:id', (req, res) => {
+  if (!requireAdmin(req, res)) return
+  deleteCustomSource(req.params.id)
+  res.json({ ok: true })
+})
+
+// --- AI source discovery ---
+app.post('/api/admin/discover-source', async (req, res) => {
+  if (!requireAdmin(req, res)) return
+  const { query } = req.body
+  if (!query) return res.status(400).json({ error: 'query required' })
+
+  const ai = new Anthropic({ apiKey: config.anthropic.apiKey })
+  try {
+    const response = await ai.messages.create({
+      model: config.anthropic.model,
+      max_tokens: 256,
+      messages: [{
+        role: 'user',
+        content: `Find the RSS feed URL for this publication, name, or article URL: "${query}"
+
+Return ONLY a JSON object: {"name": "short-slug", "feedUrl": "https://..."}
+- name: lowercase slug with hyphens (e.g. "wsj-tech", "nytimes-ai", "mit-tech-review")
+- feedUrl: the most likely RSS feed URL for AI/tech content from this source
+
+Rules:
+- If it's a Medium article URL like https://medium.com/@author/..., use https://medium.com/@author/feed as feedUrl and "medium-{author}" as name
+- If it's a domain, find their primary RSS feed for tech content
+- If it's a publication name, find their RSS feed URL
+- Common patterns: /feed, /rss, /feed.xml, /rss.xml, /blog/rss, /atom.xml
+- Prefer feeds that are known to work and be maintained
+
+Return only the JSON object, no explanation.`
+      }],
+    })
+    const match = response.content[0].text.match(/\{[\s\S]*?\}/)
+    if (!match) throw new Error('No JSON in response')
+    res.json(JSON.parse(match[0]))
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// --- Keywords ---
+app.get('/api/admin/keywords', (req, res) => {
+  if (!requireAdmin(req, res)) return
+  res.json(getKeywords())
+})
+
+app.post('/api/admin/keywords', (req, res) => {
+  if (!requireAdmin(req, res)) return
+  const { keyword, category, priority } = req.body
+  if (!keyword || !category) return res.status(400).json({ error: 'keyword and category required' })
+  const validCategories = ['ai', 'stack', 'devops', 'trend']
+  if (!validCategories.includes(category)) {
+    return res.status(400).json({ error: `category must be one of: ${validCategories.join(', ')}` })
+  }
+  try {
+    const id = addKeyword(keyword.trim(), category, parseInt(priority ?? '5'))
+    res.json({ id, keyword, category, priority: parseInt(priority ?? '5') })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.delete('/api/admin/keywords/:id', (req, res) => {
+  if (!requireAdmin(req, res)) return
+  deleteKeyword(req.params.id)
+  res.json({ ok: true })
 })
 
 // --- Daily scan pipeline ---
@@ -200,6 +379,11 @@ async function runWeeklySummary() {
   }
   console.log('[weekly] ── Done ──')
 }
+
+// --- SPA catch-all (must be last) ---
+app.get('*', (_req, res) => {
+  res.sendFile('index.html', { root: 'public' })
+})
 
 // --- Start ---
 startScheduler({ onDailyScan: runDailyScan, onWeeklySummary: runWeeklySummary })

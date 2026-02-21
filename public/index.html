@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Tech Radar</title>
+  <meta name="description" content="Daily AI & developer tech digest — curated and scored by Claude.">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav-container">
+      <a href="/" class="site-logo" data-route>
+        <img src="/assets/favicon.svg" alt="" width="28" height="28">
+        <span>AI Tech Radar</span>
+      </a>
+      <div class="nav-actions">
+        <a href="/search" class="nav-link" data-route>Search</a>
+        <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme" title="Toggle light/dark mode"></button>
+      </div>
+    </nav>
+  </header>
+
+  <main id="app">
+    <div class="loading-state">
+      <div class="spinner"></div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span>AI Tech Radar</span>
+      <span class="footer-dot">·</span>
+      <span>Powered by Claude + Bun</span>
+      <span class="footer-dot">·</span>
+      <a href="/api/feed" class="footer-link">API</a>
+    </div>
+  </footer>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

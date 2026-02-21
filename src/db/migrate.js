@@ -57,6 +57,14 @@ export function runMigrations() {
       priority INTEGER DEFAULT 5,
       active INTEGER DEFAULT 1
     );
+
+    CREATE TABLE IF NOT EXISTS custom_rss_sources (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      feed_url TEXT NOT NULL,
+      active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
   `)
 
   // Add embedded column to articles if not yet present (idempotent)
@@ -87,6 +95,25 @@ export function runMigrations() {
       }
     })
     seedMany([
+      // Anthropic models — high priority
+      ['Claude Sonnet', 'ai', 10],
+      ['Claude Opus', 'ai', 10],
+      ['Claude Haiku', 'ai', 10],
+      ['Claude 4', 'ai', 10],
+      ['Claude 5', 'ai', 10],
+      ['Anthropic', 'ai', 9],
+      ['claude-sonnet', 'ai', 9],
+      ['claude-opus', 'ai', 9],
+      // Competing models
+      ['GPT-5', 'ai', 9],
+      ['GPT-4o', 'ai', 8],
+      ['Gemini', 'ai', 8],
+      ['Llama', 'ai', 7],
+      ['Mistral', 'ai', 7],
+      ['multimodal', 'ai', 7],
+      ['visual agent', 'ai', 9],
+      ['context window', 'ai', 7],
+      // Agents & infra
       ['autonomous agent', 'ai', 10],
       ['agentic', 'ai', 10],
       ['MCP server', 'ai', 9],
@@ -95,6 +122,7 @@ export function runMigrations() {
       ['Claude API', 'ai', 8],
       ['LLM', 'ai', 7],
       ['RAG', 'ai', 7],
+      // Stack
       ['Next.js', 'stack', 8],
       ['React Server Components', 'stack', 8],
       ['Supabase', 'stack', 7],
@@ -105,11 +133,13 @@ export function runMigrations() {
       ['Cloudflare Workers', 'stack', 7],
       ['Bun runtime', 'stack', 7],
       ['Vercel', 'stack', 6],
+      // DevOps
       ['DevOps automation', 'devops', 8],
       ['CI/CD', 'devops', 6],
       ['container orchestration', 'devops', 7],
       ['platform engineering', 'devops', 7],
       ['SDLC automation', 'devops', 8],
+      // Trends
       ['developer tools', 'trend', 6],
       ['AI coding', 'trend', 8],
       ['vibe coding', 'trend', 7],

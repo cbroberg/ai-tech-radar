@@ -1,4 +1,4 @@
-import { eq, desc, gte, isNull, and, inArray } from 'drizzle-orm'
+import { eq, desc, gte, isNull, and, inArray, like } from 'drizzle-orm'
 import { getDb } from './client.js'
 import { articles } from './schema.js'
 
@@ -21,15 +21,22 @@ export function upsertArticles(items) {
   return inserted
 }
 
-export function getArticlesByScore({ minScore = 0.4, limit = 50 } = {}) {
+export function getArticlesByScore({ minScore = 0.4, limit = 50, category = null } = {}) {
   const db = getDb()
+  const conditions = [gte(articles.relevanceScore, minScore)]
+  if (category) conditions.push(like(articles.categories, `%"${category}"%`))
   return db
     .select()
     .from(articles)
-    .where(gte(articles.relevanceScore, minScore))
+    .where(and(...conditions))
     .orderBy(desc(articles.relevanceScore))
     .limit(limit)
     .all()
+}
+
+export function getArticleById(id) {
+  const db = getDb()
+  return db.select().from(articles).where(eq(articles.id, id)).get()
 }
 
 export function getRecentArticles({ hours = 26, limit = 200 } = {}) {

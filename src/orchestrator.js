@@ -1,4 +1,6 @@
-import { RSS_SOURCES } from './scrapers/rss-generic.js'
+import { RSS_SOURCES, RssScraper } from './scrapers/rss-generic.js'
+import { getCustomSources } from './db/custom-sources.js'
+import { getSqlite } from './db/client.js'
 import hackerNews from './scrapers/hackernews.js'
 import devTo from './scrapers/devto.js'
 import productHunt from './scrapers/producthunt.js'
@@ -26,13 +28,42 @@ async function runScraper(scraper) {
   }
 }
 
+// Registry — allows single-source rescrape from admin UI
+const SCRAPER_REGISTRY = new Map([
+  ...RSS_SOURCES.map((s) => [s.name, s]),
+  ['hackernews', hackerNews],
+  ['devto', devTo],
+  ['producthunt', productHunt],
+  ['hashnode', hashnode],
+  ['github-releases', githubReleases],
+  ['google-search', googleSearch],
+  ['npm-trending', npmTrending],
+  ['github-trending', githubTrending],
+  ['indie-hackers', indieHackers],
+])
+
+export function getAllScraperNames() {
+  return [...SCRAPER_REGISTRY.keys()]
+}
+
+export async function runScraperByName(name) {
+  if (SCRAPER_REGISTRY.has(name)) return runScraper(SCRAPER_REGISTRY.get(name))
+  // Check custom sources in DB
+  const custom = getSqlite().query(
+    'SELECT * FROM custom_rss_sources WHERE name = ? AND active = 1'
+  ).get(name)
+  if (custom) return runScraper(new RssScraper(custom.name, custom.feed_url))
+  throw new Error(`Unknown scraper: ${name}`)
+}
+
 export async function runAllScrapers() {
   console.log('[orchestrator] Starting scan...')
   const startedAt = Date.now()
 
-  // Batch 1: RSS feeds — all in parallel (fast, stateless)
+  // Batch 1: RSS feeds — built-in + custom sources from DB, all in parallel
   console.log('[orchestrator] Batch 1: RSS feeds')
-  const rssBatch = await Promise.allSettled(RSS_SOURCES.map(runScraper))
+  const customRss = getCustomSources().map((s) => new RssScraper(s.name, s.feed_url))
+  const rssBatch = await Promise.allSettled([...RSS_SOURCES, ...customRss].map(runScraper))
 
   // Batch 2: API sources — parallel with natural rate limiting inside each scraper
   console.log('[orchestrator] Batch 2: API sources')

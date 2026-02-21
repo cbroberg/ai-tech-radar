@@ -40,4 +40,9 @@ export const RSS_SOURCES = [
   new RssScraper('reddit-programming', 'https://www.reddit.com/r/programming/top/.rss?t=day'),
   new RssScraper('reddit-nextjs', 'https://www.reddit.com/r/nextjs/top/.rss?t=day'),
   new RssScraper('reddit-selfhosted', 'https://www.reddit.com/r/selfhosted/top/.rss?t=day'),
+  new RssScraper('medium-ai', 'https://medium.com/feed/tag/artificial-intelligence'),
+  new RssScraper('medium-ml', 'https://medium.com/feed/tag/machine-learning'),
+  new RssScraper('medium-programming', 'https://medium.com/feed/tag/programming'),
+  new RssScraper('medium-devops', 'https://medium.com/feed/tag/devops'),
+  new RssScraper('medium-tds', 'https://medium.com/feed/towards-data-science'),
 ]

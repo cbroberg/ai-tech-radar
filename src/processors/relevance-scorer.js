@@ -1,16 +1,31 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { config } from '../config.js'
 import { updateScores } from '../db/articles.js'
+import { getSqlite } from '../db/client.js'
 
 const client = new Anthropic({ apiKey: config.anthropic.apiKey })
 
 const BATCH_SIZE = 25
 const MIN_SCORE_TO_KEEP = 0.4
 
-const SYSTEM_PROMPT = `You are a relevance filter for a Danish developer's daily tech news digest.
-The developer works with: autonomous AI agents, MCP servers, agentic systems, Claude API,
-Next.js, React, Supabase, PostgreSQL, Fly.io, Docker, Bun, Cloudflare, DevOps automation,
-platform engineering, and SDLC tooling.
+function buildSystemPrompt() {
+  const keywords = getSqlite().query(
+    'SELECT keyword, category FROM watch_keywords WHERE active = 1 ORDER BY priority DESC'
+  ).all()
+
+  const byCategory = {}
+  for (const k of keywords) {
+    if (!byCategory[k.category]) byCategory[k.category] = []
+    byCategory[k.category].push(k.keyword)
+  }
+
+  const topicLines = Object.entries(byCategory)
+    .map(([cat, kws]) => `  ${cat}: ${kws.join(', ')}`)
+    .join('\n')
+
+  return `You are a relevance filter for a Danish developer's daily tech news digest.
+Score these topic areas highly:
+${topicLines}
 
 Score each article 0.0–1.0 for relevance. Also assign categories and tags.
 
@@ -19,6 +34,7 @@ Tags: 2-5 specific technology or topic keywords
 
 Return ONLY a valid JSON array, no explanation:
 [{ "index": 0, "score": 0.8, "categories": ["ai"], "tags": ["MCP", "agent"] }, ...]`
+}
 
 function buildBatchPrompt(articles) {
   const items = articles.map((a, i) => ({
@@ -63,7 +79,7 @@ export async function scoreArticles(articles) {
       const response = await client.messages.create({
         model: config.anthropic.model,
         max_tokens: 2048,
-        system: SYSTEM_PROMPT,
+        system: buildSystemPrompt(),
         messages: [{ role: 'user', content: buildBatchPrompt(batch) }],
       })
 

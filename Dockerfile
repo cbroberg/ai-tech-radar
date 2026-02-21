@@ -1,11 +1,12 @@
-FROM oven/bun:1-alpine
+FROM oven/bun:1-slim
 
 WORKDIR /app
 
-COPY package.json bun.lock* ./
+COPY package.json ./
 RUN bun install --production
 
 COPY src/ ./src/
+COPY public/ ./public/
 
 EXPOSE 3000
 

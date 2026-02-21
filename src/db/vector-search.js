@@ -4,7 +4,8 @@ export function semanticSearch(queryEmbedding, { limit = 10 } = {}) {
   if (!vecLoaded) throw new Error('Vector search not available (sqlite-vec not loaded)')
 
   const sqlite = getSqlite()
-  const queryVec = new Float32Array(queryEmbedding)
+  // Bun's SQLite requires Uint8Array (not ArrayBuffer) for BLOB bindings
+  const queryVec = new Uint8Array(new Float32Array(queryEmbedding).buffer)
 
   // Find nearest neighbours from vec_articles
   const vecResults = sqlite.query(`
@@ -13,7 +14,7 @@ export function semanticSearch(queryEmbedding, { limit = 10 } = {}) {
     WHERE embedding MATCH ?
     ORDER BY distance
     LIMIT ?
-  `).all(queryVec.buffer, limit)
+  `).all(queryVec, limit)
 
   if (vecResults.length === 0) return []
 

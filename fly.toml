@@ -4,6 +4,7 @@ primary_region = "arn"
 [build]
   dockerfile = "Dockerfile"
 
+
 [env]
   NODE_ENV = "production"
   TZ = "Europe/Copenhagen"
