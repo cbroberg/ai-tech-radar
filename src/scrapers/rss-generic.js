@@ -23,17 +23,15 @@ export class RssScraper extends BaseScraper {
 
 // All RSS sources as named instances
 export const RSS_SOURCES = [
-  new RssScraper('supabase-blog', 'https://supabase.com/blog/rss.xml'),
+  new RssScraper('supabase-blog', 'https://supabase.com/blog/rss'),
   new RssScraper('postgresql-news', 'https://www.postgresql.org/news.rss'),
   new RssScraper('cloudflare-blog', 'https://blog.cloudflare.com/rss/'),
   new RssScraper('fly-blog', 'https://fly.io/blog/feed.xml'),
-  new RssScraper('react-blog', 'https://react.dev/blog/rss'),
-  new RssScraper('vercel-blog', 'https://vercel.com/blog/rss.xml'),
+  new RssScraper('vercel-blog', 'https://vercel.com/atom'),
   new RssScraper('docker-blog', 'https://www.docker.com/blog/feed/'),
-  new RssScraper('anthropic-blog', 'https://www.anthropic.com/blog/rss'),
   new RssScraper('openai-blog', 'https://openai.com/blog/rss.xml'),
   new RssScraper('techcrunch-ai', 'https://techcrunch.com/category/artificial-intelligence/feed/'),
-  new RssScraper('the-verge-ai', 'https://www.theverge.com/ai-artificial-intelligence/rss/index.xml'),
+  new RssScraper('the-verge', 'https://www.theverge.com/rss/index.xml'),
   new RssScraper('changelog', 'https://changelog.com/feed'),
   new RssScraper('import-ai', 'https://importai.substack.com/feed'),
   new RssScraper('lobsters', 'https://lobste.rs/rss'),

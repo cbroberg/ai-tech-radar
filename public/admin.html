@@ -220,6 +220,32 @@
     .cat-stack { background: rgba(37,99,235,.2);  color: #60a5fa; }
     .cat-devops{ background: rgba(5,150,105,.2);  color: #34d399; }
     .cat-trend { background: rgba(220,38,38,.2);  color: #f87171; }
+
+    .admin-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .admin-tab {
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: color .15s, border-color .15s;
+      margin-bottom: -1px;
+    }
+    .admin-tab:hover { color: var(--text); }
+    .admin-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
   </style>
 </head>
 <body>
@@ -242,6 +268,7 @@
       </a>
       <div class="nav-actions">
         <a href="/" class="nav-link">← Feed</a>
+        <a href="/search" class="nav-link">Search</a>
         <button class="theme-toggle" id="theme-toggle" title="Toggle theme"></button>
       </div>
     </nav>
@@ -267,85 +294,91 @@
       <button class="btn btn-outline" id="btn-refresh">↻ Refresh</button>
     </div>
 
-    <!-- Sources section -->
-    <div class="section-header" style="margin-top:0;padding-top:0;border-top:none;">
-      <h2 class="section-title">Sources <span>& Scrapers</span></h2>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <label for="status-filter" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);">Filter</label>
+    <!-- Tabs -->
+    <div class="admin-tabs" id="admin-tabs">
+      <button class="admin-tab active" data-tab="sources">Sources & Scrapers</button>
+      <button class="admin-tab" data-tab="keywords">Keywords & Topics</button>
+      <button class="admin-tab" data-tab="custom-rss">Custom RSS</button>
+    </div>
+
+    <!-- Sources panel -->
+    <div class="tab-panel active" id="panel-sources">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+        <input class="add-input" id="source-filter" placeholder="Filter sources…" autocomplete="off" style="width:200px;">
         <select class="add-select" id="status-filter" style="font-size:12px;">
-          <option value="all">All</option>
+          <option value="all">All statuses</option>
           <option value="success">✓ ok</option>
           <option value="failed">✗ failed</option>
           <option value="never">— never</option>
         </select>
+        <span class="faint" style="font-size:12px;" id="source-count"></span>
       </div>
+      <table class="sources-table" id="sources-table">
+        <thead>
+          <tr>
+            <th>Source</th>
+            <th>Status</th>
+            <th>Found</th>
+            <th>New</th>
+            <th>Last run</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="sources-tbody">
+          <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-faint)">Loading…</td></tr>
+        </tbody>
+      </table>
     </div>
 
-    <!-- Sources table -->
-    <table class="sources-table" id="sources-table">
-      <thead>
-        <tr>
-          <th>Source</th>
-          <th>Status</th>
-          <th>Found</th>
-          <th>New</th>
-          <th>Last run</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="sources-tbody">
-        <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-faint)">Loading…</td></tr>
-      </tbody>
-    </table>
+    <!-- Keywords panel -->
+    <div class="tab-panel" id="panel-keywords">
+      <p class="faint" style="font-size:12px;margin:0 0 16px;">Controls what gets high relevance scores</p>
+      <div class="add-form" id="add-keyword-form">
+        <input class="add-input wide" id="new-kw" placeholder="e.g. Claude 5, Sonnet, visual agent" autocomplete="off">
+        <div class="form-error" id="kw-dup-warn" style="color:var(--accent);margin-top:0;"></div>
+        <select class="add-select" id="new-kw-cat">
+          <option value="ai">AI</option>
+          <option value="stack">Stack</option>
+          <option value="devops">DevOps</option>
+          <option value="trend">Trend</option>
+        </select>
+        <input class="add-input" id="new-kw-priority" type="number" value="7" min="1" max="10" style="width:64px;" title="Priority 1–10">
+        <button class="btn btn-primary" id="btn-add-kw">Add keyword</button>
+        <div class="form-error" id="kw-error"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <input class="add-input" id="kw-filter" placeholder="Filter keywords…" autocomplete="off" style="width:240px;">
+        <span class="faint" style="font-size:12px;" id="kw-count"></span>
+      </div>
+      <table class="sources-table" id="keywords-table">
+        <thead>
+          <tr>
+            <th>Keyword</th>
+            <th>Category</th>
+            <th>Priority</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="keywords-tbody">
+          <tr><td colspan="4" style="text-align:center;padding:40px;color:var(--text-faint)">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
 
-    <!-- Keywords section -->
-    <div class="section-header">
-      <h2 class="section-title">Keywords <span>&amp; Topics</span></h2>
-      <span class="faint" style="font-size:12px;">Controls what gets high relevance scores</span>
-    </div>
-    <div class="add-form" id="add-keyword-form">
-      <input class="add-input wide" id="new-kw" placeholder="e.g. Claude 5, Sonnet, visual agent" autocomplete="off">
-      <select class="add-select" id="new-kw-cat">
-        <option value="ai">AI</option>
-        <option value="stack">Stack</option>
-        <option value="devops">DevOps</option>
-        <option value="trend">Trend</option>
-      </select>
-      <input class="add-input" id="new-kw-priority" type="number" value="7" min="1" max="10" style="width:64px;" title="Priority 1–10">
-      <button class="btn btn-primary" id="btn-add-kw">Add keyword</button>
-      <div class="form-error" id="kw-error"></div>
-    </div>
-    <table class="sources-table" id="keywords-table">
-      <thead>
-        <tr>
-          <th>Keyword</th>
-          <th>Category</th>
-          <th>Priority</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="keywords-tbody">
-        <tr><td colspan="4" style="text-align:center;padding:40px;color:var(--text-faint)">Loading…</td></tr>
-      </tbody>
-    </table>
-
-    <!-- Custom RSS sources section -->
-    <div class="section-header">
-      <h2 class="section-title">Custom RSS <span>Sources</span></h2>
-      <span class="faint" style="font-size:12px;">Add any RSS feed — or let AI discover it for you</span>
-    </div>
-    <!-- AI discovery row -->
-    <div class="add-form" style="margin-bottom:10px;">
-      <input class="add-input wide" id="discover-query" placeholder="Type a name (WSJ, Ars Technica) or paste an article URL…" autocomplete="off">
-      <button class="btn btn-outline" id="btn-discover" style="white-space:nowrap;">🤖 Discover feed</button>
-      <div class="form-error" id="discover-error"></div>
-    </div>
-    <!-- Manual add row -->
-    <div class="add-form" id="add-source-form">
-      <input class="add-input" id="new-src-name" placeholder="source-name" autocomplete="off" style="width:160px;">
-      <input class="add-input wide" id="new-src-url" placeholder="https://example.com/feed.xml" autocomplete="off">
-      <button class="btn btn-primary" id="btn-add-src">Add source</button>
-      <div class="form-error" id="src-error"></div>
+    <!-- Custom RSS panel -->
+    <div class="tab-panel" id="panel-custom-rss">
+      <p class="faint" style="font-size:12px;margin:0 0 16px;">Add any RSS feed — or let AI discover it for you</p>
+      <div class="add-form" style="margin-bottom:10px;">
+        <input class="add-input wide" id="discover-query" placeholder="Type a name (WSJ, Ars Technica) or paste an article URL…" autocomplete="off">
+        <button class="btn btn-outline" id="btn-discover" style="white-space:nowrap;">🤖 Discover feed</button>
+        <div class="form-error" id="discover-error"></div>
+      </div>
+      <div class="add-form" id="add-source-form">
+        <input class="add-input" id="new-src-name" placeholder="source-name" autocomplete="off" style="width:160px;">
+        <input class="add-input wide" id="new-src-url" placeholder="https://example.com/feed.xml" autocomplete="off">
+        <button class="btn btn-primary" id="btn-add-src">Add source</button>
+        <div class="form-error" id="src-error"></div>
+      </div>
     </div>
 
   </main>

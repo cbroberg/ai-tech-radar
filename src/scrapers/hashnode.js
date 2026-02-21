@@ -4,7 +4,7 @@ const GQL = 'https://gql.hashnode.com'
 
 const QUERY = `
   query {
-    feed(first: 20, filter: { type: BEST }) {
+    feed(first: 20, filter: { type: FEATURED }) {
       edges {
         node {
           title

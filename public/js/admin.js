@@ -15,6 +15,16 @@ toggleBtn.addEventListener('click', () => {
   applyTheme(next)
 })
 
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+document.getElementById('admin-tabs').addEventListener('click', (e) => {
+  const tab = e.target.closest('.admin-tab')
+  if (!tab) return
+  document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'))
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'))
+  tab.classList.add('active')
+  document.getElementById(`panel-${tab.dataset.tab}`).classList.add('active')
+})
+
 // ── Auth ───────────────────────────────────────────────────────────────────────
 let token = sessionStorage.getItem('admin_token') || ''
 
@@ -97,14 +107,19 @@ let lastSourceData = null
 function renderSources() {
   if (!lastSourceData) return
   const { allSources, runMap } = lastSourceData
-  const filter = document.getElementById('status-filter').value
+  const statusFilter = document.getElementById('status-filter').value
+  const nameFilter = document.getElementById('source-filter').value.trim().toLowerCase()
 
   const tbody = document.getElementById('sources-tbody')
   const filtered = allSources.filter((source) => {
-    if (filter === 'all') return true
+    if (nameFilter && !source.name.toLowerCase().includes(nameFilter)) return false
+    if (statusFilter === 'all') return true
     const status = runMap[source.name]?.status ?? 'never'
-    return status === filter
+    return status === statusFilter
   })
+
+  const countEl = document.getElementById('source-count')
+  countEl.textContent = (nameFilter || statusFilter !== 'all') ? `${filtered.length} of ${allSources.length}` : `${allSources.length} sources`
 
   tbody.innerHTML = filtered.map((source) => {
     const { name } = source
@@ -142,6 +157,7 @@ function renderSources() {
 }
 
 document.getElementById('status-filter').addEventListener('change', renderSources)
+document.getElementById('source-filter').addEventListener('input', renderSources)
 
 function renderPage(data) {
   // Stats
@@ -165,13 +181,29 @@ function renderPage(data) {
   if (data.keywords) renderKeywords(data.keywords)
 }
 
+let allKeywords = []
+
+function renderFilteredKeywords() {
+  const filter = document.getElementById('kw-filter').value.trim().toLowerCase()
+  const filtered = filter
+    ? allKeywords.filter((kw) => kw.keyword.toLowerCase().includes(filter))
+    : allKeywords
+  const countEl = document.getElementById('kw-count')
+  countEl.textContent = filter ? `${filtered.length} of ${allKeywords.length}` : `${allKeywords.length} keywords`
+  renderKeywordsTable(filtered)
+}
+
 function renderKeywords(keywords) {
+  allKeywords = [...keywords].sort((a, b) => a.keyword.localeCompare(b.keyword))
+  renderFilteredKeywords()
+}
+
+function renderKeywordsTable(keywords) {
   const tbody = document.getElementById('keywords-tbody')
   if (!keywords.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-faint)">No keywords yet</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-faint)">No keywords match</td></tr>'
     return
   }
-  keywords.sort((a, b) => a.keyword.localeCompare(b.keyword))
   tbody.innerHTML = keywords.map((kw) => `<tr>
     <td style="font-family:monospace;font-size:13px">${kw.keyword}</td>
     <td>${catPill(kw.category)}</td>
@@ -188,6 +220,8 @@ function renderKeywords(keywords) {
     })
   })
 }
+
+document.getElementById('kw-filter').addEventListener('input', renderFilteredKeywords)
 
 function attachRowButtons() {
   // Rescrape buttons
@@ -280,11 +314,23 @@ document.getElementById('btn-add-kw').addEventListener('click', async () => {
   if (res.error) { errEl.textContent = res.error; return }
 
   document.getElementById('new-kw').value = ''
+  dupWarnEl.textContent = ''
   const data = await apiFetch('/api/admin/status')
   renderPage(data)
 })
-document.getElementById('new-kw').addEventListener('keydown', (e) => {
+const newKwInput = document.getElementById('new-kw')
+const dupWarnEl = document.getElementById('kw-dup-warn')
+
+newKwInput.addEventListener('input', () => {
+  const val = newKwInput.value.trim().toLowerCase()
+  if (!val) { dupWarnEl.textContent = ''; return }
+  const match = allKeywords.find((kw) => kw.keyword.toLowerCase() === val)
+  dupWarnEl.textContent = match ? `"${match.keyword}" already exists (${match.category})` : ''
+})
+
+newKwInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') document.getElementById('btn-add-kw').click()
+  if (e.key === 'Escape') { newKwInput.value = ''; dupWarnEl.textContent = ''; newKwInput.blur() }
 })
 
 // ── Add custom source form ─────────────────────────────────────────────────────
