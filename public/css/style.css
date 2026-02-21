@@ -113,6 +113,34 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   background: var(--surface-2);
 }
 
+.search-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.search-trigger:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.search-trigger kbd {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-faint);
+}
+
 .theme-toggle {
   width: 32px;
   height: 32px;

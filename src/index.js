@@ -20,6 +20,22 @@ import { semanticSearch } from './db/vector-search.js'
 import { getCustomSources, addCustomSource, deleteCustomSource } from './db/custom-sources.js'
 import { getKeywords, addKeyword, deleteKeyword } from './db/keywords.js'
 
+// --- Live sync helper (dev only) ---
+const LIVE_URL = 'https://ai-tech-radar.fly.dev'
+const isLocal = !process.env.FLY_APP_NAME
+
+function syncToLive(path, method, body) {
+  if (!isLocal || !config.server.adminToken) return
+  fetch(`${LIVE_URL}${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${config.server.adminToken}`, 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  }).then((r) => {
+    if (r.ok) console.log(`[live-sync] ${method} ${path} → ok`)
+    else r.text().then((t) => console.log(`[live-sync] ${method} ${path} → ${r.status}: ${t}`))
+  }).catch((err) => console.log(`[live-sync] ${method} ${path} → error: ${err.message}`))
+}
+
 // --- Validate env vars before starting ---
 try {
   validateConfig()
@@ -143,7 +159,22 @@ app.get('/api/search', async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit ?? '10'), 50)
   try {
     const queryEmbedding = await embedQuery(q)
-    const results = semanticSearch(queryEmbedding, { limit })
+    const raw = semanticSearch(queryEmbedding, { limit })
+    const results = raw.map((r) => ({
+      id: r.id,
+      source: r.source,
+      sourceUrl: r.source_url,
+      title: r.title,
+      summary: r.summary,
+      contentSnippet: r.content_snippet,
+      relevanceScore: r.relevance_score,
+      categories: typeof r.categories === 'string' ? JSON.parse(r.categories) : (r.categories ?? []),
+      tags: typeof r.tags === 'string' ? JSON.parse(r.tags) : (r.tags ?? []),
+      author: r.author,
+      publishedAt: r.published_at,
+      scrapedAt: r.scraped_at,
+      distance: r.distance,
+    }))
     res.json({ query: q, count: results.length, results })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -225,6 +256,7 @@ app.post('/api/admin/sources', (req, res) => {
   }
   try {
     const id = addCustomSource(name, feedUrl)
+    syncToLive('/api/admin/sources', 'POST', { name, feedUrl })
     res.json({ id, name, feedUrl })
   } catch (err) {
     const status = err.message.includes('UNIQUE') ? 409 : 500
@@ -290,8 +322,10 @@ app.post('/api/admin/keywords', (req, res) => {
     return res.status(400).json({ error: `category must be one of: ${validCategories.join(', ')}` })
   }
   try {
-    const id = addKeyword(keyword.trim(), category, parseInt(priority ?? '5'))
-    res.json({ id, keyword, category, priority: parseInt(priority ?? '5') })
+    const pri = parseInt(priority ?? '5')
+    const id = addKeyword(keyword.trim(), category, pri)
+    syncToLive('/api/admin/keywords', 'POST', { keyword: keyword.trim(), category, priority: pri })
+    res.json({ id, keyword, category, priority: pri })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
@@ -378,6 +412,36 @@ async function runWeeklySummary() {
     console.error('[weekly] Failed:', err.message)
   }
   console.log('[weekly] ── Done ──')
+}
+
+// --- Dev live-reload (local only) ---
+if (isLocal) {
+  const { watch } = await import('fs')
+  const reloadClients = new Set()
+
+  app.get('/dev/reload', (req, res) => {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    })
+    res.write('data: connected\n\n')
+    reloadClients.add(res)
+    req.on('close', () => reloadClients.delete(res))
+  })
+
+  let debounce = null
+  for (const dir of ['public/js', 'public/css', 'public']) {
+    try {
+      watch(dir, { recursive: false }, () => {
+        clearTimeout(debounce)
+        debounce = setTimeout(() => {
+          for (const client of reloadClients) client.write('data: reload\n\n')
+        }, 150)
+      })
+    } catch { /* dir may not exist */ }
+  }
+  console.log('[dev] Live reload enabled')
 }
 
 // --- SPA catch-all (must be last) ---

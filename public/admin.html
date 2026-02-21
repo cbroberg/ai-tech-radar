@@ -267,6 +267,20 @@
       <button class="btn btn-outline" id="btn-refresh">↻ Refresh</button>
     </div>
 
+    <!-- Sources section -->
+    <div class="section-header" style="margin-top:0;padding-top:0;border-top:none;">
+      <h2 class="section-title">Sources <span>& Scrapers</span></h2>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <label for="status-filter" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);">Filter</label>
+        <select class="add-select" id="status-filter" style="font-size:12px;">
+          <option value="all">All</option>
+          <option value="success">✓ ok</option>
+          <option value="failed">✗ failed</option>
+          <option value="never">— never</option>
+        </select>
+      </div>
+    </div>
+
     <!-- Sources table -->
     <table class="sources-table" id="sources-table">
       <thead>
@@ -337,5 +351,20 @@
   </main>
 
   <script type="module" src="/js/admin.js"></script>
+  <script>
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+      let retries = 0
+      function connectReload() {
+        const es = new EventSource('/dev/reload')
+        es.onmessage = (e) => { if (e.data === 'reload') location.reload() }
+        es.onopen = () => { retries = 0 }
+        es.onerror = () => {
+          es.close()
+          setTimeout(() => { connectReload(); if (retries++ > 0) location.reload() }, 500)
+        }
+      }
+      connectReload()
+    }
+  </script>
 </body>
 </html>

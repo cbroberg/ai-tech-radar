@@ -1,10 +1,17 @@
 import { Database } from 'bun:sqlite'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
-import { mkdirSync, unlinkSync } from 'fs'
+import { existsSync, mkdirSync, unlinkSync } from 'fs'
 import { dirname } from 'path'
 import { getLoadablePath } from 'sqlite-vec'
 import { config } from '../config.js'
 import * as schema from './schema.js'
+
+// macOS ships a locked-down SQLite that blocks extension loading.
+// Use Homebrew's vanilla SQLite if available.
+const HOMEBREW_SQLITE = '/opt/homebrew/opt/sqlite/lib/libsqlite3.dylib'
+if (process.platform === 'darwin' && existsSync(HOMEBREW_SQLITE)) {
+  Database.setCustomSQLite(HOMEBREW_SQLITE)
+}
 
 let _sqlite = null
 let _db = null

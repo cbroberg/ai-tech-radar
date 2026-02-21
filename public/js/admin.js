@@ -92,21 +92,21 @@ function sourceGroup(name) {
 }
 
 // ── Render ─────────────────────────────────────────────────────────────────────
-function renderPage(data) {
-  // Stats
-  document.getElementById('stat-articles').textContent  = data.db.articles.toLocaleString()
-  document.getElementById('stat-scored').textContent    = data.db.scored.toLocaleString()
-  document.getElementById('stat-embedded').textContent  = data.db.embedded.toLocaleString()
-  document.getElementById('stat-sources').textContent   = data.allSources.length
-  document.getElementById('last-run-label').textContent = `Last scan: ${timeAgo(data.lastRun)}`
+let lastSourceData = null
 
-  // Build source map from runs (keyed by source name)
-  const runMap = {}
-  for (const r of data.sources) runMap[r.source] = r
+function renderSources() {
+  if (!lastSourceData) return
+  const { allSources, runMap } = lastSourceData
+  const filter = document.getElementById('status-filter').value
 
-  // Render sources table — allSources is now [{name, custom, id?, feedUrl?}]
   const tbody = document.getElementById('sources-tbody')
-  tbody.innerHTML = data.allSources.map((source) => {
+  const filtered = allSources.filter((source) => {
+    if (filter === 'all') return true
+    const status = runMap[source.name]?.status ?? 'never'
+    return status === filter
+  })
+
+  tbody.innerHTML = filtered.map((source) => {
     const { name } = source
     const run = runMap[name]
     const status   = run?.status ?? 'never'
@@ -139,6 +139,27 @@ function renderPage(data) {
   }).join('')
 
   attachRowButtons()
+}
+
+document.getElementById('status-filter').addEventListener('change', renderSources)
+
+function renderPage(data) {
+  // Stats
+  document.getElementById('stat-articles').textContent  = data.db.articles.toLocaleString()
+  document.getElementById('stat-scored').textContent    = data.db.scored.toLocaleString()
+  document.getElementById('stat-embedded').textContent  = data.db.embedded.toLocaleString()
+  document.getElementById('stat-sources').textContent   = data.allSources.length
+  document.getElementById('last-run-label').textContent = `Last scan: ${timeAgo(data.lastRun)}`
+
+  // Build source map from runs (keyed by source name)
+  const runMap = {}
+  for (const r of data.sources) runMap[r.source] = r
+
+  // Store for filtering
+  data.allSources.sort((a, b) => a.name.localeCompare(b.name))
+  lastSourceData = { allSources: data.allSources, runMap }
+
+  renderSources()
 
   // Render keywords table
   if (data.keywords) renderKeywords(data.keywords)
@@ -150,6 +171,7 @@ function renderKeywords(keywords) {
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-faint)">No keywords yet</td></tr>'
     return
   }
+  keywords.sort((a, b) => a.keyword.localeCompare(b.keyword))
   tbody.innerHTML = keywords.map((kw) => `<tr>
     <td style="font-family:monospace;font-size:13px">${kw.keyword}</td>
     <td>${catPill(kw.category)}</td>

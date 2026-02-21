@@ -229,6 +229,19 @@ async function renderDetailView(id) {
   })
 }
 
+// ── Cmd+K search shortcut ─────────────────────────────────────────────────────
+
+document.getElementById('search-trigger')?.addEventListener('click', () => {
+  navigate('/search')
+})
+
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault()
+    navigate('/search')
+  }
+})
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 render(location.pathname)
