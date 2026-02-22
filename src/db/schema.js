@@ -19,6 +19,7 @@ export const articles = sqliteTable(
     digestIncluded: integer('digest_included', { mode: 'boolean' }).default(false),
     starred: integer('starred', { mode: 'boolean' }).default(false),
     starredAt: text('starred_at'),
+    imageUrl: text('image_url'),
   },
   (t) => [
     index('idx_articles_source').on(t.source),

@@ -36,6 +36,7 @@ export class BaseScraper {
       contentSnippet: item.contentSnippet?.slice(0, 500) ?? null,
       author: item.author ?? null,
       publishedAt: item.publishedAt ?? item.pubDate ?? null,
+      imageUrl: item.imageUrl ?? null,
     }
   }
 

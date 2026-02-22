@@ -13,6 +13,7 @@ const QUERY = `
           publishedAt
           author { username }
           tags { name }
+          coverImage { url }
         }
       }
     }
@@ -38,6 +39,7 @@ export class HashnodeScraper extends BaseScraper {
       contentSnippet: node.brief?.slice(0, 500) ?? null,
       author: node.author?.username ?? null,
       publishedAt: node.publishedAt,
+      imageUrl: node.coverImage?.url ?? null,
     }))
   }
 }

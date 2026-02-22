@@ -1,7 +1,35 @@
 import Parser from 'rss-parser'
 import { BaseScraper } from './base-scraper.js'
 
-const parser = new Parser({ timeout: 10_000 })
+const parser = new Parser({
+  timeout: 10_000,
+  customFields: {
+    item: [['media:content', 'mediaContent', { keepArray: false }]],
+  },
+})
+
+function extractImageFromHtml(html) {
+  if (!html) return null
+  const match = html.match(/<img[^>]+src=["']([^"']+)["']/)
+  return match?.[1] || null
+}
+
+function extractImage(item) {
+  // 1. Standard RSS enclosure (type=image/*)
+  if (item.enclosure?.url && item.enclosure.type?.startsWith('image/')) {
+    return item.enclosure.url
+  }
+  // 2. Any enclosure URL (many feeds omit type)
+  if (item.enclosure?.url) {
+    return item.enclosure.url
+  }
+  // 3. media:content
+  if (item.mediaContent?.$?.url) {
+    return item.mediaContent.$.url
+  }
+  // 4. First <img> in content HTML
+  return extractImageFromHtml(item['content:encoded'] || item.content)
+}
 
 export class RssScraper extends BaseScraper {
   constructor(name, feedUrl) {
@@ -17,6 +45,7 @@ export class RssScraper extends BaseScraper {
       contentSnippet: item.contentSnippet || item.content?.slice(0, 500),
       author: item.creator || item.author,
       publishedAt: item.pubDate || item.isoDate,
+      imageUrl: extractImage(item),
     }))
   }
 }

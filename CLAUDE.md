@@ -18,6 +18,8 @@ fly deploy --app ai-tech-radar  # Deploy to Fly.io
 
 There is no test suite and no linter configured.
 
+The dev server is always running locally on port 3000. Do not attempt to start it.
+
 ## Architecture
 
 **Runtime:** Bun (ES modules, no build step, no transpilation). Uses Bun's built-in SQLite driver.

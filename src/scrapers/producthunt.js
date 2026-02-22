@@ -15,6 +15,7 @@ const QUERY = `
           votesCount
           createdAt
           topics { edges { node { name } } }
+          thumbnail { url }
         }
       }
     }
@@ -48,6 +49,7 @@ export class ProductHuntScraper extends BaseScraper {
       contentSnippet: `${node.votesCount} votes. Topics: ${node.topics.edges.map((e) => e.node.name).join(', ')}`,
       author: null,
       publishedAt: node.createdAt,
+      imageUrl: node.thumbnail?.url ?? null,
     }))
   }
 }

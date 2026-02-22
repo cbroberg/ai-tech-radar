@@ -57,10 +57,14 @@ export function renderHero(article) {
   const cats = article.categories ?? []
   const primary = cats[0] ?? 'other'
   const color = CAT_COLOR[primary] ?? CAT_COLOR.other
+  const hasImage = !!article.imageUrl
 
   return `
-    <article class="hero-card" data-id="${esc(article.id)}" role="button" tabindex="0">
-      <div class="hero-gradient" style="background: radial-gradient(ellipse at top left, ${color} 0%, transparent 70%);"></div>
+    <article class="hero-card ${hasImage ? 'hero-has-image' : ''}" data-id="${esc(article.id)}" role="button" tabindex="0">
+      ${hasImage
+        ? `<div class="hero-image" style="background-image: url('${esc(article.imageUrl)}');"></div>`
+        : `<div class="hero-gradient" style="background: radial-gradient(ellipse at top left, ${color} 0%, transparent 70%);"></div>`
+      }
       <div class="hero-inner">
         <div class="hero-meta">
           <span class="hero-label">Top Story</span>
@@ -86,7 +90,10 @@ export function renderArticleCard(article) {
 
   return `
     <article class="article-card" data-id="${esc(article.id)}" role="button" tabindex="0">
-      <div class="card-stripe" style="background: ${color};"></div>
+      ${article.imageUrl
+        ? `<div class="card-image"><img src="${esc(article.imageUrl)}" alt="" loading="lazy"></div>`
+        : `<div class="card-stripe" style="background: ${color};"></div>`
+      }
       <div class="card-body">
         <div class="card-meta">
           ${categoryBadge(primary)}

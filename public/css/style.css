@@ -246,6 +246,17 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   opacity: .12;
 }
 
+.hero-image {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: .18;
+}
+.hero-has-image .hero-inner {
+  position: relative;
+}
+
 .hero-inner {
   position: relative;
   padding: 32px;
@@ -389,6 +400,18 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .card-stripe {
   height: 3px;
   flex-shrink: 0;
+}
+
+.card-image {
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--surface-2);
+}
+.card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .card-body {

@@ -76,6 +76,9 @@ export function runMigrations() {
   try { sqlite.exec('ALTER TABLE articles ADD COLUMN starred INTEGER DEFAULT 0') } catch { /* column already exists */ }
   try { sqlite.exec('ALTER TABLE articles ADD COLUMN starred_at TEXT') } catch { /* column already exists */ }
 
+  // Add image_url column (idempotent)
+  try { sqlite.exec('ALTER TABLE articles ADD COLUMN image_url TEXT') } catch { /* column already exists */ }
+
   // Create vec0 virtual table for vector similarity search
   if (vecLoaded) {
     sqlite.exec(`

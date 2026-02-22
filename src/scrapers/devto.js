@@ -41,6 +41,7 @@ export class DevToScraper extends BaseScraper {
         contentSnippet: a.description?.slice(0, 500) ?? null,
         author: a.user?.username ?? null,
         publishedAt: a.published_at,
+        imageUrl: a.cover_image || a.social_image || null,
       }))
   }
 }
