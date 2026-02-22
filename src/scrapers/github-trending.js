@@ -32,7 +32,7 @@ export class GitHubTrendingScraper extends BaseScraper {
             title: `[GitHub Trending] ${repoPath.replace('/', ' / ')}`,
             contentSnippet: `${description}${stars ? ` | ⭐ ${stars}` : ''}`.slice(0, 500),
             author: repoPath.split('/')[1],
-            publishedAt: new Date().toISOString(),
+            publishedAt: null,
           })
         })
       } catch (err) {
