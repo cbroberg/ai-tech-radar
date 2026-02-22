@@ -64,7 +64,7 @@ export function renderHero(article) {
         <h2 class="hero-title">${esc(article.title)}</h2>
         ${article.summary ? `<p class="hero-summary">${esc(article.summary)}</p>` : ''}
         <div class="hero-footer">
-          <span class="hero-source">${esc(article.source)}${article.publishedAt ? ' · ' + timeAgo(article.publishedAt) : ''}</span>
+          <span class="hero-source">${esc(article.source)} · ${timeAgo(article.publishedAt || article.scrapedAt)}</span>
           <a href="${esc(article.sourceUrl)}" target="_blank" rel="noopener" class="btn btn-primary" onclick="event.stopPropagation()">Read Article →</a>
         </div>
       </div>
@@ -89,7 +89,7 @@ export function renderArticleCard(article) {
         <h3 class="card-title">${esc(article.title)}</h3>
         ${article.summary ? `<p class="card-summary">${esc(article.summary)}</p>` : '<p class="card-summary"></p>'}
         <div class="card-footer">
-          <span class="card-source">${esc(article.source)}${article.publishedAt ? ' · ' + timeAgo(article.publishedAt) : ''}</span>
+          <span class="card-source">${esc(article.source)} · ${timeAgo(article.publishedAt || article.scrapedAt)}</span>
           ${tags.length ? `<div class="card-tags">${tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
         </div>
       </div>
@@ -123,6 +123,34 @@ export function renderArticleGrid(articles) {
     return `<div class="empty-state">No articles in this category yet.</div>`
   }
   return `<div class="article-grid">${articles.map(renderArticleCard).join('')}</div>`
+}
+
+export function renderPagination(page, totalPages) {
+  if (totalPages <= 1) return ''
+
+  const buttons = []
+  buttons.push(`<button class="tab-btn ${page <= 1 ? 'disabled' : ''}" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>← Prev</button>`)
+
+  // Show page numbers with ellipsis
+  const range = []
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || (i >= page - 1 && i <= page + 1)) {
+      range.push(i)
+    } else if (range[range.length - 1] !== '...') {
+      range.push('...')
+    }
+  }
+  for (const p of range) {
+    if (p === '...') {
+      buttons.push(`<span class="pagination-ellipsis">…</span>`)
+    } else {
+      buttons.push(`<button class="tab-btn ${p === page ? 'active' : ''}" data-page="${p}">${p}</button>`)
+    }
+  }
+
+  buttons.push(`<button class="tab-btn ${page >= totalPages ? 'disabled' : ''}" data-page="${page + 1}" ${page >= totalPages ? 'disabled' : ''}>Next →</button>`)
+
+  return `<div class="pagination">${buttons.join('')}</div>`
 }
 
 export function renderSearchResult(article) {

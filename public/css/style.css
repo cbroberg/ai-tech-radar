@@ -661,6 +661,58 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .star-btn:hover { color: var(--accent); transform: scale(1.2); }
 .star-btn.starred { color: var(--accent); }
 
+/* ── Articles browse ──────────────────────────────── */
+.articles-browse {
+  padding-top: 28px;
+}
+
+.articles-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.filter-select {
+  padding: 6px 14px;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%238888a8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 30px;
+}
+.filter-select:hover { border-color: var(--text-faint); color: var(--text); }
+.filter-select:focus { outline: none; border-color: var(--accent); }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 32px;
+  flex-wrap: wrap;
+}
+.pagination .tab-btn.disabled {
+  opacity: .4;
+  cursor: default;
+  pointer-events: none;
+}
+.pagination-ellipsis {
+  color: var(--text-faint);
+  padding: 0 4px;
+  font-size: 14px;
+}
+
 /* ── Responsive tweaks ────────────────────────────── */
 @media (max-width: 480px) {
   .nav-container { padding: 0 16px; }

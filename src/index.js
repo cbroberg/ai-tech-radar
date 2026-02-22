@@ -5,7 +5,7 @@ import { startScheduler, getSchedulerStatus } from './scheduler.js'
 import { runMigrations } from './db/migrate.js'
 import { runAllScrapers, getAllScraperNames, runScraperByName } from './orchestrator.js'
 import { getSourceStatus } from './db/source-runs.js'
-import { getArticlesByScore, getUnscoredArticles, getArticleById, toggleStar, getStarredArticles, deleteOldArticles } from './db/articles.js'
+import { getArticlesByScore, getUnscoredArticles, getArticleById, toggleStar, setStarByUrl, getStarredArticles, deleteOldArticles, browseArticles } from './db/articles.js'
 import { getTodayDigest, getLatestDigest } from './db/digests.js'
 import { dedupByTitle } from './processors/dedup.js'
 import { scoreArticles } from './processors/relevance-scorer.js'
@@ -110,6 +110,15 @@ app.get('/api/articles', (req, res) => {
   res.json(items)
 })
 
+app.get('/api/articles/browse', (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page ?? '1'))
+  const pageSize = Math.min(100, Math.max(1, parseInt(req.query.page_size ?? '20')))
+  const minScore = parseFloat(req.query.min_score ?? '0')
+  const category = req.query.category?.trim() || null
+  const sort = req.query.sort || 'relevance'
+  res.json(browseArticles({ page, pageSize, minScore, category, sort }))
+})
+
 app.get('/api/articles/starred', (_req, res) => {
   res.json(getStarredArticles())
 })
@@ -123,6 +132,18 @@ app.get('/api/articles/:id', (req, res) => {
 app.post('/api/articles/:id/star', (req, res) => {
   if (!requireAdmin(req, res)) return
   const result = toggleStar(req.params.id)
+  if (result === null) return res.status(404).json({ error: 'Article not found' })
+  // Sync star state to live via source_url (IDs differ between environments)
+  const article = getArticleById(req.params.id)
+  if (article) syncToLive('/api/articles/star-by-url', 'POST', { sourceUrl: article.sourceUrl, starred: result })
+  res.json({ starred: result })
+})
+
+app.post('/api/articles/star-by-url', (req, res) => {
+  if (!requireAdmin(req, res)) return
+  const { sourceUrl, starred } = req.body
+  if (!sourceUrl || starred === undefined) return res.status(400).json({ error: 'sourceUrl and starred required' })
+  const result = setStarByUrl(sourceUrl, starred)
   if (result === null) return res.status(404).json({ error: 'Article not found' })
   res.json({ starred: result })
 })

@@ -97,6 +97,17 @@ export function toggleStar(id) {
   return newStarred
 }
 
+export function setStarByUrl(sourceUrl, starred) {
+  const db = getDb()
+  const article = db.select({ id: articles.id }).from(articles).where(eq(articles.sourceUrl, sourceUrl)).get()
+  if (!article) return null
+  db.update(articles)
+    .set({ starred, starredAt: starred ? new Date().toISOString() : null })
+    .where(eq(articles.id, article.id))
+    .run()
+  return starred
+}
+
 export function getStarredArticles() {
   const db = getDb()
   return db
@@ -105,6 +116,38 @@ export function getStarredArticles() {
     .where(eq(articles.starred, true))
     .orderBy(desc(articles.starredAt))
     .all()
+}
+
+export function browseArticles({ page = 1, pageSize = 20, minScore = 0, category = null, sort = 'relevance' } = {}) {
+  const db = getDb()
+
+  const conditions = []
+  if (minScore > 0) conditions.push(gte(articles.relevanceScore, minScore))
+  if (category) conditions.push(like(articles.categories, `%"${category}"%`))
+
+  const where = conditions.length ? and(...conditions) : undefined
+
+  const orderMap = {
+    relevance: desc(articles.relevanceScore),
+    date: desc(articles.scrapedAt),
+    score: desc(articles.relevanceScore),
+  }
+  const orderBy = orderMap[sort] ?? orderMap.relevance
+
+  const total = db.select({ count: articles.id }).from(articles).where(where).all().length
+  const totalPages = Math.ceil(total / pageSize)
+  const offset = (page - 1) * pageSize
+
+  const items = db
+    .select()
+    .from(articles)
+    .where(where)
+    .orderBy(orderBy)
+    .limit(pageSize)
+    .offset(offset)
+    .all()
+
+  return { items, total, page, pageSize, totalPages }
 }
 
 export function deleteOldArticles() {

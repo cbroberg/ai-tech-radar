@@ -37,6 +37,14 @@ export async function fetchStarred() {
   return res.json()
 }
 
+export async function fetchArticlesBrowse({ page = 1, pageSize = 20, minScore = 0, category = null, sort = 'relevance' } = {}) {
+  const params = new URLSearchParams({ page, page_size: pageSize, min_score: minScore, sort })
+  if (category) params.set('category', category)
+  const res = await fetch(`/api/articles/browse?${params}`)
+  if (!res.ok) throw new Error(`Browse failed: ${res.status}`)
+  return res.json()
+}
+
 export async function fetchSearch(query, limit = 10) {
   const params = new URLSearchParams({ q: query, limit })
   const res = await fetch(`/api/search?${params}`)

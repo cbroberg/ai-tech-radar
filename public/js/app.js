@@ -1,7 +1,7 @@
-import { fetchFeed, fetchArticle, fetchSearch, toggleStar, fetchStarred } from './api.js'
+import { fetchFeed, fetchArticle, fetchSearch, toggleStar, fetchStarred, fetchArticlesBrowse } from './api.js'
 import {
   renderHero, renderArticleGrid, renderCategoryTabs,
-  renderDigestBanner, renderSearchResult, scoreBadge, categoryBadge, timeAgo, starButton,
+  renderDigestBanner, renderSearchResult, renderPagination, scoreBadge, categoryBadge, timeAgo, starButton,
 } from './components.js'
 
 // ── Theme ────────────────────────────────────────────────────────────────────
@@ -48,9 +48,11 @@ async function render(path) {
 
   setLoading()
   try {
-    if (path.startsWith('/articles/')) {
+    if (path === '/articles') {
+      await renderArticlesView()
+    } else if (path.startsWith('/articles/')) {
       await renderDetailView(path.slice('/articles/'.length))
-    } else if (path === '/search') {
+    } else if (path === '/search' || path.startsWith('/search?')) {
       renderSearchView()
     } else {
       await renderHomeView()
@@ -66,7 +68,7 @@ function navigate(path) {
   render(path)
 }
 
-window.addEventListener('popstate', () => render(location.pathname))
+window.addEventListener('popstate', () => render(location.pathname + location.search))
 
 // Intercept clicks on [data-route] links
 document.addEventListener('click', (e) => {
@@ -171,9 +173,116 @@ function attachStarHandlers() {
   })
 }
 
+// ── Articles browse view ──────────────────────────────────────────────────────
+
+async function renderArticlesView() {
+  let state = { page: 1, minScore: 0, category: '', sort: 'relevance' }
+
+  async function load() {
+    const container = document.getElementById('articles-browse-container')
+    if (container) container.innerHTML = '<div class="loading-state"><div class="spinner"></div></div>'
+
+    const gridContainer = document.getElementById('articles-browse-container')
+    if (!gridContainer) return
+
+    // Starred is a special case — separate endpoint, no pagination
+    if (state.category === 'starred') {
+      const starred = await fetchStarred()
+      gridContainer.innerHTML = `
+        <div class="section-header">
+          <span class="section-title">${starred.length} starred articles</span>
+        </div>
+        ${renderArticleGrid(starred)}`
+      attachCardHandlers()
+      attachStarHandlers()
+      return
+    }
+
+    const data = await fetchArticlesBrowse({
+      page: state.page,
+      pageSize: 20,
+      minScore: state.minScore,
+      category: state.category || null,
+      sort: state.sort,
+    })
+
+    gridContainer.innerHTML = `
+      <div class="section-header">
+        <span class="section-title">${data.total} articles · Page ${data.page} of ${data.totalPages}</span>
+      </div>
+      ${renderArticleGrid(data.items)}
+      ${renderPagination(data.page, data.totalPages)}`
+
+    attachCardHandlers()
+    attachStarHandlers()
+
+    // Pagination clicks
+    gridContainer.querySelectorAll('.pagination [data-page]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const p = parseInt(btn.dataset.page)
+        if (p >= 1 && p <= data.totalPages) {
+          state.page = p
+          load()
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+      })
+    })
+  }
+
+  app.innerHTML = `
+    <div class="articles-browse">
+      <h1 class="search-heading">All Articles</h1>
+      <div class="articles-controls">
+        <select class="filter-select" id="browse-category">
+          <option value="">All Categories</option>
+          <option value="starred">★ Starred</option>
+          <option value="ai">AI & Agents</option>
+          <option value="stack">Stack Updates</option>
+          <option value="devops">DevOps & Platform</option>
+          <option value="trend">Trending</option>
+          <option value="other">Other</option>
+        </select>
+        <select class="filter-select" id="browse-score">
+          <option value="0">Any Score</option>
+          <option value="0.4">0.4+</option>
+          <option value="0.6">0.6+</option>
+          <option value="0.8">0.8+</option>
+        </select>
+        <select class="filter-select" id="browse-sort">
+          <option value="relevance">Sort: Relevance</option>
+          <option value="date">Sort: Newest</option>
+        </select>
+      </div>
+      <div id="articles-browse-container">
+        <div class="loading-state"><div class="spinner"></div></div>
+      </div>
+    </div>`
+
+  // Attach filter handlers
+  document.getElementById('browse-category').addEventListener('change', (e) => {
+    state.category = e.target.value
+    state.page = 1
+    load()
+  })
+  document.getElementById('browse-score').addEventListener('change', (e) => {
+    state.minScore = parseFloat(e.target.value)
+    state.page = 1
+    load()
+  })
+  document.getElementById('browse-sort').addEventListener('change', (e) => {
+    state.sort = e.target.value
+    state.page = 1
+    load()
+  })
+
+  await load()
+}
+
 // ── Search view ───────────────────────────────────────────────────────────────
 
 function renderSearchView() {
+  const urlQ = new URLSearchParams(location.search).get('q') || ''
+
   app.innerHTML = `
     <div class="search-view">
       <h1 class="search-heading">Search Articles</h1>
@@ -181,7 +290,7 @@ function renderSearchView() {
       <form class="search-form" id="search-form">
         <input class="search-input" type="search" id="search-input"
           placeholder="e.g. Claude API tool use, Kubernetes autoscaling…"
-          autocomplete="off">
+          autocomplete="off" value="${urlQ.replace(/"/g, '&quot;')}">
         <button type="submit" class="btn btn-primary">Search</button>
       </form>
       <div id="search-results"></div>
@@ -194,8 +303,10 @@ function renderSearchView() {
 
   let debounceTimer = null
 
-  async function doSearch(query) {
+  async function doSearch(query, updateUrl = true) {
     if (!query.trim()) { results.innerHTML = ''; return }
+    // Persist query in URL so back-navigation restores it
+    if (updateUrl) history.replaceState(null, '', `/search?q=${encodeURIComponent(query.trim())}`)
     results.innerHTML = '<div class="loading-state" style="padding:40px 0"><div class="spinner"></div></div>'
     try {
       const data = await fetchSearch(query.trim(), 12)
@@ -207,6 +318,7 @@ function renderSearchView() {
         <div class="search-results-header">${data.count} results for "<strong>${query}</strong>"</div>
         <div class="article-grid">${data.results.map(r => renderSearchResult(r)).join('')}</div>`
       attachCardHandlers()
+      attachStarHandlers()
     } catch (err) {
       results.innerHTML = `<div class="error-state"><h2>Search unavailable</h2><p>${err.message}</p></div>`
     }
@@ -218,6 +330,9 @@ function renderSearchView() {
     clearTimeout(debounceTimer)
     debounceTimer = setTimeout(() => doSearch(input.value), 300)
   })
+
+  // Restore search results if query was in URL
+  if (urlQ) doSearch(urlQ, false)
 }
 
 // ── Article detail view ───────────────────────────────────────────────────────
@@ -236,7 +351,7 @@ async function renderDetailView(id) {
 
   app.innerHTML = `
     <div class="detail-view">
-      <a href="/" class="detail-back" data-route>← Back to Feed</a>
+      <a href="#" class="detail-back" id="detail-back-link">← Back</a>
       <div class="detail-meta">
         ${categoryBadge(primary)}
         ${scoreBadge(article.relevanceScore)}
@@ -246,7 +361,7 @@ async function renderDetailView(id) {
       <div class="detail-byline">
         <span>📰 ${esc(article.source)}</span>
         ${article.author ? `<span>✍️ ${esc(article.author)}</span>` : ''}
-        ${article.publishedAt ? `<span>🕐 ${timeAgo(article.publishedAt)}</span>` : ''}
+        <span>🕐 ${timeAgo(article.publishedAt || article.scrapedAt)}</span>
       </div>
       ${article.summary ? `<div class="detail-summary">${esc(article.summary)}</div>` : ''}
       ${tags.length ? `<div class="detail-tags">${tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
@@ -256,11 +371,10 @@ async function renderDetailView(id) {
       </div>
     </div>`
 
-  // Re-attach route handler for back link
-  app.querySelector('a[data-route]')?.addEventListener('click', (e) => {
+  document.getElementById('detail-back-link')?.addEventListener('click', (e) => {
     e.preventDefault()
-    navigate('/')
     document.title = 'AI Tech Radar'
+    window.history.back()
   })
 
   attachStarHandlers()
@@ -281,4 +395,4 @@ document.addEventListener('keydown', (e) => {
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
-render(location.pathname)
+render(location.pathname + location.search)
