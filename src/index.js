@@ -282,6 +282,13 @@ app.post('/api/admin/cleanup', (req, res) => {
   res.json({ deleted })
 })
 
+// --- Backfill images ---
+app.post('/api/admin/backfill-images', (req, res) => {
+  if (!requireAdmin(req, res)) return
+  res.json({ status: 'triggered' })
+  backfillImages().catch((err) => console.error('[backfill] Failed:', err.message))
+})
+
 // --- Custom RSS sources ---
 app.get('/api/admin/sources', (req, res) => {
   if (!requireAdmin(req, res)) return
@@ -380,6 +387,68 @@ app.delete('/api/admin/keywords/:id', (req, res) => {
   deleteKeyword(req.params.id)
   res.json({ ok: true })
 })
+
+// --- Backfill images pipeline ---
+async function backfillImages() {
+  const sqlite = getSqlite()
+  const rows = sqlite.query('SELECT id, source, source_url FROM articles WHERE image_url IS NULL').all()
+  console.log(`[backfill] ${rows.length} articles without images`)
+  let updated = 0
+
+  // Dev.to: fetch cover_image from API
+  const devtoRows = rows.filter((r) => r.source === 'devto')
+  for (const row of devtoRows) {
+    try {
+      const slug = row.source_url.replace('https://dev.to/', '')
+      const res = await fetch(`https://dev.to/api/articles/${slug}`)
+      if (!res.ok) continue
+      const data = await res.json()
+      const img = data.cover_image || data.social_image
+      if (img) {
+        sqlite.prepare('UPDATE articles SET image_url = ? WHERE id = ?').run(img, row.id)
+        updated++
+      }
+    } catch { /* skip */ }
+  }
+
+  // RSS sources: re-parse feeds and match by URL
+  const { RSS_SOURCES } = await import('./scrapers/rss-generic.js')
+  const rssRows = rows.filter((r) => RSS_SOURCES.some((s) => s.name === r.source))
+  if (rssRows.length) {
+    const urlToId = new Map(rssRows.map((r) => [r.source_url, r.id]))
+    for (const scraper of RSS_SOURCES) {
+      try {
+        const items = await scraper.run()
+        for (const item of items) {
+          const id = urlToId.get(item.sourceUrl)
+          if (id && item.imageUrl) {
+            sqlite.prepare('UPDATE articles SET image_url = ? WHERE id = ?').run(item.imageUrl, id)
+            updated++
+          }
+        }
+      } catch { /* skip failed feeds */ }
+    }
+  }
+
+  // Hashnode: re-scrape
+  const hashnodeRows = rows.filter((r) => r.source === 'hashnode')
+  if (hashnodeRows.length) {
+    try {
+      const urlToId = new Map(hashnodeRows.map((r) => [r.source_url, r.id]))
+      const { default: hashnode } = await import('./scrapers/hashnode.js')
+      const items = await hashnode.run()
+      for (const item of items) {
+        const id = urlToId.get(item.sourceUrl)
+        if (id && item.imageUrl) {
+          sqlite.prepare('UPDATE articles SET image_url = ? WHERE id = ?').run(item.imageUrl, id)
+          updated++
+        }
+      }
+    } catch { /* skip */ }
+  }
+
+  console.log(`[backfill] Done — updated ${updated} articles with images`)
+}
 
 // --- Daily scan pipeline ---
 async function runDailyScan() {
