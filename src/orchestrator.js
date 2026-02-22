@@ -7,7 +7,7 @@ import productHunt from './scrapers/producthunt.js'
 import hashnode from './scrapers/hashnode.js'
 import githubReleases from './scrapers/github-releases.js'
 import googleSearch from './scrapers/google-search.js'
-import npmTrending from './scrapers/npm-trending.js'
+
 import githubTrending from './scrapers/github-trending.js'
 import indieHackers from './scrapers/indie-hackers.js'
 import { startRun, completeRun, failRun } from './db/source-runs.js'
@@ -37,7 +37,7 @@ const SCRAPER_REGISTRY = new Map([
   ['hashnode', hashnode],
   ['github-releases', githubReleases],
   ['google-search', googleSearch],
-  ['npm-trending', npmTrending],
+
   ['github-trending', githubTrending],
   ['indie-hackers', indieHackers],
 ])
@@ -74,7 +74,6 @@ export async function runAllScrapers() {
     runScraper(hashnode),
     runScraper(githubReleases),
     runScraper(googleSearch),
-    runScraper(npmTrending),
   ])
 
   // Batch 3: Web scrapes — sequential, respectful
