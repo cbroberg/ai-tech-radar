@@ -36,6 +36,13 @@ export function timeAgo(dateStr) {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
+export function formatDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 function esc(str) {
   return (str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
@@ -64,7 +71,7 @@ export function renderHero(article) {
         <h2 class="hero-title">${esc(article.title)}</h2>
         ${article.summary ? `<p class="hero-summary">${esc(article.summary)}</p>` : ''}
         <div class="hero-footer">
-          <span class="hero-source">${esc(article.source)} · ${timeAgo(article.publishedAt || article.scrapedAt)}</span>
+          <span class="hero-source">${esc(article.source)} · ${formatDate(article.publishedAt || article.scrapedAt)}</span>
           <a href="${esc(article.sourceUrl)}" target="_blank" rel="noopener" class="btn btn-primary" onclick="event.stopPropagation()">Read Article →</a>
         </div>
       </div>
@@ -89,7 +96,7 @@ export function renderArticleCard(article) {
         <h3 class="card-title">${esc(article.title)}</h3>
         ${article.summary ? `<p class="card-summary">${esc(article.summary)}</p>` : '<p class="card-summary"></p>'}
         <div class="card-footer">
-          <span class="card-source">${esc(article.source)} · ${timeAgo(article.publishedAt || article.scrapedAt)}</span>
+          <span class="card-source">${esc(article.source)} · ${formatDate(article.publishedAt || article.scrapedAt)}</span>
           ${tags.length ? `<div class="card-tags">${tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
         </div>
       </div>

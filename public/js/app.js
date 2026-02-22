@@ -1,7 +1,7 @@
 import { fetchFeed, fetchArticle, fetchSearch, toggleStar, fetchStarred, fetchArticlesBrowse } from './api.js'
 import {
   renderHero, renderArticleGrid, renderCategoryTabs,
-  renderDigestBanner, renderSearchResult, renderPagination, scoreBadge, categoryBadge, timeAgo, starButton,
+  renderDigestBanner, renderSearchResult, renderPagination, scoreBadge, categoryBadge, formatDate, starButton,
 } from './components.js'
 
 // ── Theme ────────────────────────────────────────────────────────────────────
@@ -361,7 +361,7 @@ async function renderDetailView(id) {
       <div class="detail-byline">
         <span>📰 ${esc(article.source)}</span>
         ${article.author ? `<span>✍️ ${esc(article.author)}</span>` : ''}
-        <span>🕐 ${timeAgo(article.publishedAt || article.scrapedAt)}</span>
+        <span>🕐 ${formatDate(article.publishedAt || article.scrapedAt)}</span>
       </div>
       ${article.summary ? `<div class="detail-summary">${esc(article.summary)}</div>` : ''}
       ${tags.length ? `<div class="detail-tags">${tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
