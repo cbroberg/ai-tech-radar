@@ -130,7 +130,6 @@ app.get('/api/articles/:id', (req, res) => {
 })
 
 app.post('/api/articles/:id/star', (req, res) => {
-  if (!requireAdmin(req, res)) return
   const result = toggleStar(req.params.id)
   if (result === null) return res.status(404).json({ error: 'Article not found' })
   // Sync star state to live via source_url (IDs differ between environments)

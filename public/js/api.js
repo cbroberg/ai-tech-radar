@@ -21,12 +21,7 @@ export async function fetchArticle(id) {
 }
 
 export async function toggleStar(id) {
-  const token = sessionStorage.getItem('admin_token')
-  if (!token) throw new Error('Not authenticated')
-  const res = await fetch(`/api/articles/${id}/star`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  const res = await fetch(`/api/articles/${id}/star`, { method: 'POST' })
   if (!res.ok) throw new Error(`Star failed: ${res.status}`)
   return res.json()
 }
