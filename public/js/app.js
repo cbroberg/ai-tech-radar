@@ -1,7 +1,7 @@
-import { fetchFeed, fetchArticle, fetchSearch, toggleStar, fetchStarred, fetchArticlesBrowse } from './api.js'
+import { fetchFeed, fetchArticle, fetchSearch, toggleStar, dismissArticle, fetchStarred, fetchArticlesBrowse } from './api.js'
 import {
   renderHero, renderArticleGrid, renderCategoryTabs,
-  renderDigestBanner, renderSearchResult, renderPagination, scoreBadge, categoryBadge, formatDate, starButton,
+  renderDigestBanner, renderSearchResult, renderPagination, scoreBadge, categoryBadge, formatDate, starButton, dismissButton,
 } from './components.js'
 
 // ── Theme ────────────────────────────────────────────────────────────────────
@@ -123,6 +123,7 @@ async function renderHomeView() {
   app.innerHTML = buildHTML()
   attachCardHandlers()
   attachStarHandlers()
+  attachDismissHandlers()
 
   // Category tab clicks (re-render grid only)
   app.addEventListener('click', (e) => {
@@ -138,13 +139,14 @@ async function renderHomeView() {
     document.getElementById('article-grid-container').innerHTML = renderArticleGrid(getVisibleArticles())
     attachCardHandlers()
     attachStarHandlers()
+    attachDismissHandlers()
   })
 }
 
 function attachCardHandlers() {
   app.querySelectorAll('.article-card, .hero-card').forEach(card => {
     const handler = (e) => {
-      if (e.target.closest('.star-btn')) return
+      if (e.target.closest('.star-btn') || e.target.closest('.dismiss-btn')) return
       if (e.type === 'keydown' && e.key !== 'Enter') return
       navigate(`/articles/${card.dataset.id}`)
     }
@@ -173,6 +175,29 @@ function attachStarHandlers() {
   })
 }
 
+function attachDismissHandlers() {
+  app.querySelectorAll('.dismiss-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation()
+      const id = btn.dataset.dismissId
+      const card = btn.closest('.article-card, .hero-card')
+      // Optimistic removal
+      if (card) {
+        card.style.transition = 'opacity .2s, transform .2s'
+        card.style.opacity = '0'
+        card.style.transform = 'scale(.95)'
+        setTimeout(() => card.remove(), 200)
+      }
+      try {
+        await dismissArticle(id)
+      } catch {
+        // Reload the current view on failure
+        render(location.pathname + location.search)
+      }
+    })
+  })
+}
+
 // ── Articles browse view ──────────────────────────────────────────────────────
 
 async function renderArticlesView() {
@@ -195,6 +220,7 @@ async function renderArticlesView() {
         ${renderArticleGrid(starred)}`
       attachCardHandlers()
       attachStarHandlers()
+      attachDismissHandlers()
       return
     }
 
@@ -215,6 +241,7 @@ async function renderArticlesView() {
 
     attachCardHandlers()
     attachStarHandlers()
+    attachDismissHandlers()
 
     // Pagination clicks
     gridContainer.querySelectorAll('.pagination [data-page]').forEach(btn => {
@@ -319,6 +346,7 @@ function renderSearchView() {
         <div class="article-grid">${data.results.map(r => renderSearchResult(r)).join('')}</div>`
       attachCardHandlers()
       attachStarHandlers()
+      attachDismissHandlers()
     } catch (err) {
       results.innerHTML = `<div class="error-state"><h2>Search unavailable</h2><p>${err.message}</p></div>`
     }
@@ -356,6 +384,7 @@ async function renderDetailView(id) {
         ${categoryBadge(primary)}
         ${scoreBadge(article.relevanceScore)}
         ${starButton(article)}
+        ${dismissButton(article)}
       </div>
       <h1 class="detail-title">${esc(article.title)}</h1>
       <div class="detail-byline">
@@ -378,6 +407,19 @@ async function renderDetailView(id) {
   })
 
   attachStarHandlers()
+
+  // Dismiss in detail view navigates back
+  app.querySelectorAll('.dismiss-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation()
+      const dismissId = btn.dataset.dismissId
+      try {
+        await dismissArticle(dismissId)
+      } catch { /* ignore */ }
+      document.title = 'AI Tech Radar'
+      window.history.back()
+    })
+  })
 }
 
 // ── Cmd+K search shortcut ─────────────────────────────────────────────────────

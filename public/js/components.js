@@ -52,6 +52,10 @@ export function starButton(article) {
   return `<button class="star-btn ${isStarred ? 'starred' : ''}" data-star-id="${esc(article.id)}" title="${isStarred ? 'Unstar' : 'Star'}">${isStarred ? '★' : '☆'}</button>`
 }
 
+export function dismissButton(article) {
+  return `<button class="dismiss-btn" data-dismiss-id="${esc(article.id)}" title="Remove article">👎</button>`
+}
+
 export function renderHero(article) {
   if (!article) return ''
   const cats = article.categories ?? []
@@ -71,6 +75,7 @@ export function renderHero(article) {
           ${categoryBadge(primary)}
           ${scoreBadge(article.relevanceScore)}
           ${starButton(article)}
+          ${dismissButton(article)}
         </div>
         <h2 class="hero-title">${esc(article.title)}</h2>
         ${article.summary ? `<p class="hero-summary">${esc(article.summary)}</p>` : ''}
@@ -99,6 +104,7 @@ export function renderArticleCard(article) {
           ${categoryBadge(primary)}
           ${scoreBadge(article.relevanceScore)}
           ${starButton(article)}
+          ${dismissButton(article)}
         </div>
         <h3 class="card-title">${esc(article.title)}</h3>
         ${article.summary ? `<p class="card-summary">${esc(article.summary)}</p>` : '<p class="card-summary"></p>'}

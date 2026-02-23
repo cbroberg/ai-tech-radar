@@ -150,6 +150,16 @@ export function browseArticles({ page = 1, pageSize = 20, minScore = 0, category
   return { items, total, page, pageSize, totalPages }
 }
 
+export function deleteArticle(id) {
+  const db = getDb()
+  const sqlite = getSqlite()
+  const article = db.select({ id: articles.id }).from(articles).where(eq(articles.id, id)).get()
+  if (!article) return false
+  db.delete(articles).where(eq(articles.id, id)).run()
+  try { sqlite.prepare('DELETE FROM vec_articles WHERE article_id = ?').run(id) } catch {}
+  return true
+}
+
 export function deleteOldArticles() {
   const sqlite = getSqlite()
   const now = new Date()

@@ -5,7 +5,7 @@ import { startScheduler, getSchedulerStatus } from './scheduler.js'
 import { runMigrations } from './db/migrate.js'
 import { runAllScrapers, getAllScraperNames, runScraperByName } from './orchestrator.js'
 import { getSourceStatus } from './db/source-runs.js'
-import { getArticlesByScore, getUnscoredArticles, getArticleById, toggleStar, setStarByUrl, getStarredArticles, deleteOldArticles, browseArticles } from './db/articles.js'
+import { getArticlesByScore, getUnscoredArticles, getArticleById, toggleStar, setStarByUrl, getStarredArticles, deleteOldArticles, browseArticles, deleteArticle } from './db/articles.js'
 import { getTodayDigest, getLatestDigest } from './db/digests.js'
 import { dedupByTitle } from './processors/dedup.js'
 import { scoreArticles } from './processors/relevance-scorer.js'
@@ -136,6 +136,12 @@ app.post('/api/articles/:id/star', (req, res) => {
   const article = getArticleById(req.params.id)
   if (article) syncToLive('/api/articles/star-by-url', 'POST', { sourceUrl: article.sourceUrl, starred: result })
   res.json({ starred: result })
+})
+
+app.delete('/api/articles/:id', (req, res) => {
+  const deleted = deleteArticle(req.params.id)
+  if (!deleted) return res.status(404).json({ error: 'Article not found' })
+  res.json({ deleted: true })
 })
 
 app.post('/api/articles/star-by-url', (req, res) => {

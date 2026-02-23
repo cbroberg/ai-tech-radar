@@ -684,6 +684,19 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .star-btn:hover { color: var(--accent); transform: scale(1.2); }
 .star-btn.starred { color: var(--accent); }
 
+/* ── Dismiss button ─────────────────────────────── */
+.dismiss-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 4px;
+  color: var(--text-faint);
+  transition: color .15s, transform .15s;
+}
+.dismiss-btn:hover { color: #ef4444; transform: scale(1.2); }
+
 /* ── Articles browse ──────────────────────────────── */
 .articles-browse {
   padding-top: 28px;

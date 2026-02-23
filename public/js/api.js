@@ -26,6 +26,12 @@ export async function toggleStar(id) {
   return res.json()
 }
 
+export async function dismissArticle(id) {
+  const res = await fetch(`/api/articles/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(`Dismiss failed: ${res.status}`)
+  return res.json()
+}
+
 export async function fetchStarred() {
   const res = await fetch('/api/articles/starred')
   if (!res.ok) throw new Error(`Starred failed: ${res.status}`)
