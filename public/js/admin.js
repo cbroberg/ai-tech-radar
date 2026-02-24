@@ -208,9 +208,28 @@ function renderKeywordsTable(keywords) {
   tbody.innerHTML = keywords.map((kw) => `<tr>
     <td style="font-family:monospace;font-size:13px">${kw.keyword}</td>
     <td>${catPill(kw.category)}</td>
-    <td class="num muted">${kw.priority}</td>
+    <td><input type="number" min="1" max="10" value="${kw.priority}" data-pri-id="${kw.id}"
+      style="width:52px;padding:4px 6px;font-size:13px;text-align:center;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-variant-numeric:tabular-nums;"></td>
     <td><button class="delete-btn" data-kw-id="${kw.id}">✕</button></td>
   </tr>`).join('')
+
+  // Inline priority editing
+  document.querySelectorAll('[data-pri-id]').forEach((input) => {
+    input.addEventListener('change', async () => {
+      const val = Math.min(10, Math.max(1, parseInt(input.value) || 5))
+      input.value = val
+      input.style.borderColor = 'var(--accent)'
+      await apiFetch(`/api/admin/keywords/${input.dataset.priId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ priority: val }),
+      })
+      // Update local data so filter/sort stays in sync
+      const kw = allKeywords.find(k => k.id === input.dataset.priId)
+      if (kw) kw.priority = val
+      input.style.borderColor = '#34d399'
+      setTimeout(() => { input.style.borderColor = 'var(--border)' }, 1500)
+    })
+  })
 
   document.querySelectorAll('[data-kw-id]').forEach((btn) => {
     btn.addEventListener('click', async () => {

@@ -14,6 +14,16 @@ export function addKeyword(keyword, category, priority = 5) {
   return id
 }
 
+export function updateKeyword(id, { priority, category }) {
+  const fields = []
+  const values = []
+  if (priority !== undefined) { fields.push('priority = ?'); values.push(priority) }
+  if (category !== undefined) { fields.push('category = ?'); values.push(category) }
+  if (fields.length === 0) return
+  values.push(id)
+  getSqlite().prepare(`UPDATE watch_keywords SET ${fields.join(', ')} WHERE id = ?`).run(...values)
+}
+
 export function deleteKeyword(id) {
   getSqlite().prepare('DELETE FROM watch_keywords WHERE id = ?').run(id)
 }

@@ -18,7 +18,7 @@ import { getSqlite, vecLoaded } from './db/client.js'
 import { embedNewArticles, embedQuery } from './processors/embedder.js'
 import { semanticSearch } from './db/vector-search.js'
 import { getCustomSources, addCustomSource, deleteCustomSource } from './db/custom-sources.js'
-import { getKeywords, addKeyword, deleteKeyword } from './db/keywords.js'
+import { getKeywords, addKeyword, updateKeyword, deleteKeyword } from './db/keywords.js'
 
 // --- Live sync helper (dev only) ---
 const LIVE_URL = 'https://ai-tech-radar.fly.dev'
@@ -392,6 +392,13 @@ app.post('/api/admin/keywords', (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
+})
+
+app.patch('/api/admin/keywords/:id', (req, res) => {
+  if (!requireAdmin(req, res)) return
+  const { priority, category } = req.body
+  updateKeyword(req.params.id, { priority: priority != null ? parseInt(priority) : undefined, category })
+  res.json({ ok: true })
 })
 
 app.delete('/api/admin/keywords/:id', (req, res) => {
