@@ -1,4 +1,4 @@
-import { desc, gte } from 'drizzle-orm'
+import { desc, gte, isNotNull } from 'drizzle-orm'
 import { getDb } from './client.js'
 import { digests, articles } from './schema.js'
 
@@ -24,6 +24,15 @@ export function getTodayDigest() {
 export function getLatestDigest() {
   const db = getDb()
   return db.select().from(digests).orderBy(desc(digests.createdAt)).limit(1).get()
+}
+
+export function getPastTopStoryIds() {
+  const db = getDb()
+  const rows = db.select({ topStoryId: digests.topStoryId })
+    .from(digests)
+    .where(isNotNull(digests.topStoryId))
+    .all()
+  return new Set(rows.map(r => r.topStoryId))
 }
 
 export function getWeeklyArticles() {

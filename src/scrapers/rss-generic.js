@@ -73,4 +73,5 @@ export const RSS_SOURCES = [
   new RssScraper('medium-devops', 'https://medium.com/feed/tag/devops'),
   new RssScraper('medium-tds', 'https://medium.com/feed/towards-data-science'),
   new RssScraper('medium-generativeai', 'https://generativeai.pub/feed'),
+  new RssScraper('medium-claude', 'https://medium.com/feed/tag/claude'),
 ]

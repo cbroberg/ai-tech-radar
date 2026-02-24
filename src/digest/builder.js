@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { config } from '../config.js'
-import { getArticlesByScore } from '../db/articles.js'
+import { getArticlesByScore, getRecentScoredArticles } from '../db/articles.js'
+import { getPastTopStoryIds } from '../db/digests.js'
 
 const client = new Anthropic({ apiKey: config.anthropic.apiKey })
 
@@ -12,8 +13,18 @@ const CATEGORY_META = {
 }
 
 export async function buildDailyDigest(scrapeStats) {
-  // Pull today's scored articles from DB
-  const articles = await getArticlesByScore({ minScore: 0.4, limit: 100 })
+  // Pick top story: prefer recent + never-featured, fall back to all scored
+  const pastIds = getPastTopStoryIds()
+  const recentArticles = getRecentScoredArticles({ hours: 26, minScore: 0.4, limit: 100 })
+  let topStory = recentArticles.find(a => !pastIds.has(a.id)) ?? null
+
+  if (!topStory) {
+    const allScored = getArticlesByScore({ minScore: 0.4, limit: 100 })
+    topStory = allScored.find(a => !pastIds.has(a.id)) ?? allScored[0] ?? null
+  }
+
+  // Use recent articles for grouping if available, else fall back
+  const articles = recentArticles.length > 0 ? recentArticles : getArticlesByScore({ minScore: 0.4, limit: 100 })
 
   if (articles.length === 0) {
     return null
@@ -33,8 +44,6 @@ export async function buildDailyDigest(scrapeStats) {
       .sort((a, b) => (b.relevanceScore ?? 0) - (a.relevanceScore ?? 0))
       .slice(0, 10)
   }
-
-  const topStory = articles[0] ?? null
 
   // Generate a one-line intro via Claude (short prompt, cheap)
   const intro = await generateIntro(articles.length, scrapeStats)

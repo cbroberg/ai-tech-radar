@@ -51,6 +51,18 @@ export function getRecentArticles({ hours = 26, limit = 200 } = {}) {
     .all()
 }
 
+export function getRecentScoredArticles({ hours = 26, minScore = 0.4, limit = 100 } = {}) {
+  const db = getDb()
+  const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString()
+  return db
+    .select()
+    .from(articles)
+    .where(and(gte(articles.scrapedAt, since), gte(articles.relevanceScore, minScore)))
+    .orderBy(desc(articles.relevanceScore))
+    .limit(limit)
+    .all()
+}
+
 export function getUnscoredArticles({ hours = 26, limit = 200 } = {}) {
   const db = getDb()
   const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString()
