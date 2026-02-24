@@ -5,8 +5,8 @@ import { startScheduler, getSchedulerStatus } from './scheduler.js'
 import { runMigrations } from './db/migrate.js'
 import { runAllScrapers, getAllScraperNames, runScraperByName } from './orchestrator.js'
 import { getSourceStatus } from './db/source-runs.js'
-import { getArticlesByScore, getUnscoredArticles, getArticleById, toggleStar, setStarByUrl, getStarredArticles, deleteOldArticles, browseArticles, deleteArticle } from './db/articles.js'
-import { getTodayDigest, getLatestDigest } from './db/digests.js'
+import { getArticlesByScore, getRecentScoredArticles, getUnscoredArticles, getArticleById, toggleStar, setStarByUrl, getStarredArticles, deleteOldArticles, browseArticles, deleteArticle } from './db/articles.js'
+import { getTodayDigest, getLatestDigest, getPastTopStoryIds } from './db/digests.js'
 import { dedupByTitle } from './processors/dedup.js'
 import { scoreArticles } from './processors/relevance-scorer.js'
 import { summarizeTopArticles } from './processors/summarizer.js'
@@ -155,7 +155,14 @@ app.post('/api/articles/star-by-url', (req, res) => {
 
 // --- Feed (homepage composite) ---
 app.get('/api/feed', (req, res) => {
-  const allArticles = getArticlesByScore({ minScore: 0.4, limit: 100 })
+  // Prefer recent articles (26h); fall back to all scored on slow days
+  let allArticles = getRecentScoredArticles({ hours: 26, minScore: 0.4, limit: 100 })
+  if (allArticles.length === 0) allArticles = getArticlesByScore({ minScore: 0.4, limit: 100 })
+
+  // Top story: pick highest-scored that hasn't been featured in a past digest
+  const pastIds = getPastTopStoryIds()
+  const topStory = allArticles.find(a => !pastIds.has(a.id)) ?? allArticles[0] ?? null
+
   const grouped = { ai: [], stack: [], devops: [], trend: [], other: [] }
   for (const article of allArticles) {
     const cats = article.categories ?? []
@@ -166,7 +173,7 @@ app.get('/api/feed', (req, res) => {
   const digest = getLatestDigest()
   res.json({
     intro: digest?.summaryMarkdown ?? null,
-    topStory: allArticles[0] ?? null,
+    topStory,
     grouped,
     counts,
     total: allArticles.length,

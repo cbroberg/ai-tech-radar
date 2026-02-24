@@ -179,6 +179,7 @@ function attachDismissHandlers() {
   app.querySelectorAll('.dismiss-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation()
+      if (!confirm('Remove this article permanently?')) return
       const id = btn.dataset.dismissId
       const card = btn.closest('.article-card, .hero-card')
       // Optimistic removal
@@ -412,6 +413,7 @@ async function renderDetailView(id) {
   app.querySelectorAll('.dismiss-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation()
+      if (!confirm('Remove this article permanently?')) return
       const dismissId = btn.dataset.dismissId
       try {
         await dismissArticle(dismissId)
