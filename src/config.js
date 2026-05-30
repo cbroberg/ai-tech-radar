@@ -36,7 +36,7 @@ export const config = {
   },
 
   schedule: {
-    daily: process.env.CRON_DAILY || '0 6 * * *',
+    daily: process.env.CRON_DAILY || '0 6 * * 1',
     weekly: process.env.CRON_WEEKLY || '0 7 * * 1',
     timezone: process.env.TIMEZONE || 'Europe/Copenhagen',
   },
