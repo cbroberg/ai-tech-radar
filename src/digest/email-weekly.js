@@ -1,29 +1,24 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { ai } from '../ai.js'
 import { config } from '../config.js'
 import { getWeeklyArticles } from '../db/digests.js'
 
-const client = new Anthropic({ apiKey: config.anthropic.apiKey })
-
-// --- Weekly summary via Claude ---
+// --- Weekly summary via DeepSeek ---
 
 async function generateWeeklySummary(articles) {
   const topArticles = articles.slice(0, 30).map((a, i) =>
     `${i + 1}. [${a.source}] ${a.title}${a.summary ? ` — ${a.summary}` : ''}`
   ).join('\n')
 
-  const response = await client.messages.create({
-    model: config.anthropic.model,
-    max_tokens: 800,
-    messages: [{
-      role: 'user',
-      content:
-        `Write a weekly tech digest summary for a Danish DevOps/AI developer. ` +
-        `Identify 3-5 major themes or trends from this week. Be specific and actionable. ` +
-        `Use markdown. Max 600 words.\n\nTop articles this week:\n${topArticles}`,
-    }],
+  const { text } = await ai.chat({
+    prompt:
+      `Write a weekly tech digest summary for a Danish DevOps/AI developer. ` +
+      `Identify 3-5 major themes or trends from this week. Be specific and actionable. ` +
+      `Use markdown. Max 600 words.\n\nTop articles this week:\n${topArticles}`,
+    maxTokens: 800,
+    tier: 'cheap',
   })
 
-  return response.content[0].text.trim()
+  return text.trim()
 }
 
 // --- HTML email template ---

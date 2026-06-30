@@ -1,9 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk'
-import { config } from '../config.js'
+import { ai, parseJsonLoose } from '../ai.js'
 import { updateScores } from '../db/articles.js'
 import { getSqlite } from '../db/client.js'
-
-const client = new Anthropic({ apiKey: config.anthropic.apiKey })
 
 const BATCH_SIZE = 25
 const MIN_SCORE_TO_KEEP = 0.4
@@ -47,10 +44,9 @@ function buildBatchPrompt(articles) {
 }
 
 function parseBatchResponse(text, articles) {
-  // Extract JSON array from response (handle potential markdown fences)
-  const match = text.match(/\[[\s\S]*\]/)
-  if (!match) throw new Error('No JSON array found in response')
-  const scores = JSON.parse(match[0])
+  const parsed = parseJsonLoose(text)
+  const scores = Array.isArray(parsed) ? parsed : []
+  if (scores.length === 0) throw new Error('No JSON array found in response')
 
   return scores
     .filter((s) => typeof s.index === 'number' && typeof s.score === 'number')
@@ -76,14 +72,14 @@ export async function scoreArticles(articles) {
     const totalBatches = Math.ceil(articles.length / BATCH_SIZE)
 
     try {
-      const response = await client.messages.create({
-        model: config.anthropic.model,
-        max_tokens: 2048,
+      const { text } = await ai.chat({
         system: buildSystemPrompt(),
         messages: [{ role: 'user', content: buildBatchPrompt(batch) }],
+        responseFormat: 'json',
+        maxTokens: 2048,
+        tier: 'cheap',
       })
 
-      const text = response.content[0].text
       const scores = parseBatchResponse(text, batch)
       allScores.push(...scores)
       console.log(`[scorer] Batch ${batchNum}/${totalBatches}: scored ${scores.length} articles`)

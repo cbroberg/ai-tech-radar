@@ -1,8 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk'
-import { config } from '../config.js'
+import { ai } from '../ai.js'
 import { updateScores } from '../db/articles.js'
-
-const client = new Anthropic({ apiKey: config.anthropic.apiKey })
 
 const MAX_TO_SUMMARIZE = 20
 
@@ -34,14 +31,14 @@ export async function summarizeTopArticles(scoredArticles, allArticlesById) {
       const article = allArticlesById[scored.id]
       const prompt = `Title: ${article.title}\nSource: ${article.source}\nSnippet: ${article.contentSnippet ?? '(no content)'}`
 
-      const response = await client.messages.create({
-        model: config.anthropic.model,
-        max_tokens: 256,
+      const { text } = await ai.chat({
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: prompt }],
+        maxTokens: 256,
+        tier: 'cheap',
       })
 
-      return { id: scored.id, summary: response.content[0].text.trim() }
+      return { id: scored.id, summary: text.trim() }
     })
   )
 

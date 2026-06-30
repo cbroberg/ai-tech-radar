@@ -9,9 +9,8 @@ export const config = {
     path: process.env.DB_PATH || './data/radar.db',
   },
 
-  anthropic: {
-    apiKey: process.env.ANTHROPIC_API_KEY,
-    model: process.env.AI_MODEL || 'claude-sonnet-4-6',
+  ai: {
+    openrouterApiKey: process.env.OPENROUTER_API_KEY,
   },
 
   serper: {
@@ -44,7 +43,7 @@ export const config = {
 
 export function validateConfig() {
   const required = [
-    ['ANTHROPIC_API_KEY', config.anthropic.apiKey],
+    ['OPENROUTER_API_KEY', config.ai.openrouterApiKey],
     ['DISCORD_WEBHOOK_URL', config.notifications.discordWebhookUrl],
   ]
 

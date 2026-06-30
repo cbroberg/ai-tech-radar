@@ -8,6 +8,7 @@ primary_region = "arn"
 [env]
   NODE_ENV = "production"
   TZ = "Europe/Copenhagen"
+  PORT = "3000"
 
 [http_service]
   internal_port = 3000

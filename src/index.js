@@ -1,5 +1,5 @@
 import express from 'express'
-import Anthropic from '@anthropic-ai/sdk'
+import { ai, parseJsonLoose } from './ai.js'
 import { config, validateConfig } from './config.js'
 import { startScheduler, getSchedulerStatus } from './scheduler.js'
 import { runMigrations } from './db/migrate.js'
@@ -49,7 +49,7 @@ runMigrations()
 
 // --- Log active features ---
 console.log('[startup] Active features:')
-console.log(`  AI model   : ${config.anthropic.model}`)
+console.log(`  AI         : DeepSeek via OpenRouter${config.ai.openrouterApiKey ? '' : ' (no key!)'}`)
 console.log(`  Serper     : ${config.serper.apiKey ? 'enabled' : 'disabled (no key)'}`)
 console.log(`  Email      : ${config.notifications.resendApiKey ? `enabled → ${config.notifications.notificationEmail}` : 'disabled (no key)'}`)
 console.log(`  ProductHunt: ${config.sources.productHuntToken ? 'enabled' : 'disabled (no key)'}`)
@@ -339,14 +339,9 @@ app.post('/api/admin/discover-source', async (req, res) => {
   const { query } = req.body
   if (!query) return res.status(400).json({ error: 'query required' })
 
-  const ai = new Anthropic({ apiKey: config.anthropic.apiKey })
   try {
-    const response = await ai.messages.create({
-      model: config.anthropic.model,
-      max_tokens: 256,
-      messages: [{
-        role: 'user',
-        content: `Find the RSS feed URL for this publication, name, or article URL: "${query}"
+    const { text } = await ai.chat({
+      prompt: `Find the RSS feed URL for this publication, name, or article URL: "${query}"
 
 Return ONLY a JSON object: {"name": "short-slug", "feedUrl": "https://..."}
 - name: lowercase slug with hyphens (e.g. "wsj-tech", "nytimes-ai", "mit-tech-review")
@@ -359,12 +354,14 @@ Rules:
 - Common patterns: /feed, /rss, /feed.xml, /rss.xml, /blog/rss, /atom.xml
 - Prefer feeds that are known to work and be maintained
 
-Return only the JSON object, no explanation.`
-      }],
+Return only the JSON object, no explanation.`,
+      responseFormat: 'json',
+      maxTokens: 256,
+      tier: 'cheap',
     })
-    const match = response.content[0].text.match(/\{[\s\S]*?\}/)
-    if (!match) throw new Error('No JSON in response')
-    res.json(JSON.parse(match[0]))
+    const parsed = parseJsonLoose(text)
+    if (!parsed) throw new Error('No JSON in response')
+    res.json(parsed)
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

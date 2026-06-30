@@ -11,7 +11,7 @@
     "sync": "bash scripts/sync-to-live.sh"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
+    "@broberg/ai-sdk": "^0.20.0",
     "cheerio": "^1.0.0",
     "drizzle-orm": "^0.41.0",
     "express": "^4.21.2",

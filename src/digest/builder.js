@@ -1,9 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk'
-import { config } from '../config.js'
+import { ai } from '../ai.js'
 import { getArticlesByScore, getRecentScoredArticles } from '../db/articles.js'
 import { getPastTopStoryIds } from '../db/digests.js'
-
-const client = new Anthropic({ apiKey: config.anthropic.apiKey })
 
 const CATEGORY_META = {
   ai:     { label: 'AI & Agents',        emoji: '🤖' },
@@ -60,19 +57,16 @@ export async function buildDailyDigest(scrapeStats) {
 
 async function generateIntro(relevantCount, scrapeStats) {
   try {
-    const response = await client.messages.create({
-      model: config.anthropic.model,
-      max_tokens: 100,
-      messages: [{
-        role: 'user',
-        content:
-          `Write a single punchy sentence (max 120 chars) introducing today's AI tech digest. ` +
-          `${scrapeStats.totalFound} sources scanned, ${relevantCount} relevant items found. ` +
-          `Today is ${new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}. ` +
-          `Be specific and energetic. No emojis.`,
-      }],
+    const { text } = await ai.chat({
+      prompt:
+        `Write a single punchy sentence (max 120 chars) introducing today's AI tech digest. ` +
+        `${scrapeStats.totalFound} sources scanned, ${relevantCount} relevant items found. ` +
+        `Today is ${new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}. ` +
+        `Be specific and energetic. No emojis.`,
+      maxTokens: 100,
+      tier: 'cheap',
     })
-    return response.content[0].text.trim()
+    return text.trim()
   } catch {
     return `${relevantCount} relevant items from ${scrapeStats.totalFound} scraped today.`
   }
