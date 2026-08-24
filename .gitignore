@@ -13,6 +13,7 @@ logs/
 
 # Runtime
 .fly/
+data/
 
 # OS
 .DS_Store
