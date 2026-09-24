@@ -13,10 +13,11 @@ primary_region = "arn"
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = false
+  auto_stop_machines = "stop"
+  # F391 24/9 2026 (ejerens GO): 3 svar på 7 døgn — kold
   auto_start_machines = true
-  min_machines_running = 1
-
+  min_machines_running = 0
+  # F391 24/9 2026 (ejerens GO): 3 svar på 7 døgn — kold
 [[http_service.checks]]
   grace_period = "30s"
   interval = "60s"
